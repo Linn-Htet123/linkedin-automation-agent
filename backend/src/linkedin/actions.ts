@@ -662,30 +662,100 @@ export async function readMessages(
         currentStep = "extract-messages";
         const messages: MessageData[] = [];
 
-        // Strategy: Find message list items by role
-        const msgItems = page.getByRole("listitem");
-        const totalItems = await msgItems.count().catch(() => 0);
+        // Detect if we are on the messaging page
+        const mainArea = page.locator("main, .scaffold-layout__main, [role='main']").first();
+        if (!await mainArea.isVisible({ timeout: 5000 }).catch(() => false)) {
+            throw new Error("Could not find the main messaging area. Page might not have loaded.");
+        }
 
-        // Take the last N items that look like messages
+        // Strategy: The message list is usually the only 'list' inside the 'main' content area
+        // or it has a specific class/aria-label.
+        let msgList = mainArea.getByRole("list").first();
+
+        // If there are multiple lists in main, try to find the one that looks like a message thread
+        // often aria-label="Message list" or similar
+        const lists = await mainArea.getByRole("list").all();
+        if (lists.length > 1) {
+            // Try to find one with "message" in label
+            for (const list of lists) {
+                const label = await list.getAttribute("aria-label") || "";
+                if (label.toLowerCase().includes("message")) {
+                    msgList = list;
+                    break;
+                }
+            }
+            // Fallback: usually the last list in main is the chat
+            msgList = lists[lists.length - 1];
+        }
+
+        // Get all items from this specific list
+        const msgItems = msgList.locator("li");
+        const totalItems = await msgItems.count().catch(() => 0);
+        console.log(`🔍 Found ${totalItems} items in the conversation thread.`);
+
+        // Take the last N items
         const startIdx = Math.max(0, totalItems - count);
         for (let i = startIdx; i < totalItems; i++) {
             const item = msgItems.nth(i);
-            const text = (await item.textContent().catch(() => ""))?.trim() || "";
 
-            if (text.length > 0 && text.length < 5000) {
-                // Try to extract sender and body from the structured item
-                const parts = text.split("\n").filter((p) => p.trim().length > 0);
-                if (parts.length >= 1) {
+            // Scroll into view to ensure text content is rendered (virtualization)
+            await item.scrollIntoViewIfNeeded().catch(() => { });
+
+            const text = (await item.innerText().catch(() => ""))?.trim() || "";
+
+            if (text.length > 0) {
+                // Improved extraction:
+                // 1. Try to find the message body specifically in a <p> tag (LinkedIn standard)
+                const bodyEl = item.locator("p").first();
+                let body = "";
+
+                if (await bodyEl.isVisible().catch(() => false)) {
+                    body = (await bodyEl.innerText().catch(() => ""))?.trim() || "";
+                }
+
+                // fallback if <p> not found or empty
+                if (!body) {
+                    // removing known UI noise
+                    const lines = text.split("\n")
+                        .map(l => l.trim())
+                        .filter(l =>
+                            l.length > 0 &&
+                            !l.match(/^(Remove reaction|Reaction|Reply|•|Edited)$/i) &&
+                            !l.match(/^\d+$/) // ignore single numbers (reaction counts)
+                        );
+
+                    if (lines.length >= 2) {
+                        body = lines.slice(1).join("\n").trim();
+                    } else if (lines.length === 1) {
+                        body = lines[0];
+                    }
+                }
+
+                // extracting sender name
+                // usually the first strong text or the first line
+                // or specific class .msg-s-message-group__name
+                let sender = "Unknown";
+                const senderEl = item.locator(".msg-s-message-group__name, .msg-s-event-listitem__name").first();
+                if (await senderEl.isVisible().catch(() => false)) {
+                    sender = (await senderEl.innerText().catch(() => ""))?.trim() || "Unknown";
+                } else {
+                    // heuristic: first line if body was found separately
+                    const lines = text.split("\n");
+                    if (lines.length > 0) sender = lines[0].trim();
+                }
+
+                // Filter out empty messages or just reaction metadata
+                if (body && body !== "Remove reaction" && !body.match(/^\d+$/)) {
                     messages.push({
-                        sender: parts.length > 1 ? parts[0].trim() : "Unknown",
-                        body: parts.length > 1 ? parts.slice(1).join(" ").trim() : parts[0].trim(),
-                        timestamp: "",
+                        sender: sender,
+                        body: body,
+                        timestamp: "recent",
                     });
                 }
             }
         }
 
-        console.log(`📖 Read ${messages.length} messages.`);
+        console.log(`📖 Successfully extracted ${messages.length} messages.`);
         return { success: true, messages };
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
