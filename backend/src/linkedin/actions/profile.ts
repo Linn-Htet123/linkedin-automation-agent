@@ -1,9 +1,3 @@
-/**
- * Profile Actions
- *
- * Handles searching for LinkedIn profiles.
- */
-
 import { sessionManager } from "../session-manager.js";
 import { clearSearchOverlay } from "../utils/navigation.js";
 import { dumpDOM, dumpDOMForced } from "../../utils/domDump.js";

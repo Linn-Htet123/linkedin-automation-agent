@@ -1,16 +1,9 @@
-/**
- * Send Message Action
- *
- * Handles sending messages on LinkedIn.
- */
-
 import { sessionManager } from "../session-manager.js";
 import { navigateToMessaging, clearSearchOverlay, dismissOverlays } from "../utils/navigation.js";
 import { findMessagingSearchInput, findMessageTextbox, findSendButton, findRecipientInput } from "../utils/locators.js";
 import { humanClick, humanType, randomDelay } from "../../utils/humanDelay.js";
 import { dumpDOM, dumpDOMForced } from "../../utils/domDump.js";
 
-// Types from original actions.ts
 export interface ActionResult {
     success: boolean;
     message: string;
@@ -22,7 +15,6 @@ export interface ActionResult {
 async function clickConversation(page: any, recipientName: string): Promise<boolean> {
     await clearSearchOverlay(page);
 
-    // Strategy 1: role=listitem containing the name
     const listItems = page.getByRole("listitem");
     const count = await listItems.count().catch(() => 0);
     console.log(`Found ${count} list items in messaging`);
@@ -38,7 +30,6 @@ async function clickConversation(page: any, recipientName: string): Promise<bool
         }
     }
 
-    // Strategy 2: getByText
     try {
         const nameLink = page.getByText(recipientName, { exact: false }).first();
         if (await nameLink.isVisible({ timeout: 2000 }).catch(() => false)) {
@@ -46,9 +37,8 @@ async function clickConversation(page: any, recipientName: string): Promise<bool
             await humanClick(nameLink);
             return true;
         }
-    } catch { /* not found */ }
+    } catch { }
 
-    // Strategy 3: anchor containing name
     try {
         const links = page.locator(`a:has-text("${recipientName}")`);
         if (await links.first().isVisible({ timeout: 2000 }).catch(() => false)) {
@@ -56,7 +46,7 @@ async function clickConversation(page: any, recipientName: string): Promise<bool
             await humanClick(links.first());
             return true;
         }
-    } catch { /* not found */ }
+    } catch { }
 
     console.log(`No conversation found for "${recipientName}"`);
     return false;

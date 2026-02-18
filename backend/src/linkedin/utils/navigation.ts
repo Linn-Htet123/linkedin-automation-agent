@@ -1,9 +1,3 @@
-/**
- * Navigation Utilities
- *
- * Handles page navigation and overlay dismissal.
- */
-
 import type { Page } from "playwright";
 
 export async function clearSearchOverlay(page: Page): Promise<void> {
@@ -20,7 +14,6 @@ export async function clearSearchOverlay(page: Page): Promise<void> {
             });
         });
     } catch {
-        // Ignore
     }
 }
 
@@ -35,7 +28,6 @@ export async function dismissOverlays(page: Page): Promise<void> {
                 await page.waitForTimeout(500);
             }
         } catch {
-            // Not present
         }
     }
 }
@@ -52,7 +44,6 @@ export async function navigateToMessaging(page: Page): Promise<void> {
     try {
         await page.waitForLoadState("networkidle", { timeout: 10_000 });
     } catch {
-        // Networkidle can hang — continue anyway
     }
     await clearSearchOverlay(page);
     console.log(`URL: ${page.url()}`);

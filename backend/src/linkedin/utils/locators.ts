@@ -1,10 +1,3 @@
-/**
- * Locator Helpers
- *
- * Strategies to find key UI elements (search boxes, buttons, inputs)
- * robustly across different LinkedIn UI versions.
- */
-
 import type { Page, Locator } from "playwright";
 
 export async function findMessagingSearchInput(page: Page): Promise<Locator> {

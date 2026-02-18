@@ -1,17 +1,9 @@
-/**
- * Read Messages Action
- *
- * Scrapes messages from the LinkedIn messaging interface
- * using semantic locators (no brittle CSS classes).
- */
-
 import { sessionManager } from "../session-manager.js";
 import { navigateToMessaging, clearSearchOverlay } from "../utils/navigation.js";
 import { findMessagingSearchInput } from "../utils/locators.js";
 import { humanClick, humanType, randomDelay } from "../../utils/humanDelay.js";
 import { dumpDOM, dumpDOMForced } from "../../utils/domDump.js";
 
-// Types derived from original actions.ts
 export interface MessageData {
     sender: string;
     body: string;
@@ -29,7 +21,6 @@ export interface ReadResult {
 async function clickConversation(page: any, recipientName: string): Promise<boolean> {
     await clearSearchOverlay(page);
 
-    // Strategy 1: role=listitem containing the name
     const listItems = page.getByRole("listitem");
     const count = await listItems.count().catch(() => 0);
     console.log(`Found ${count} list items in messaging`);
@@ -45,7 +36,6 @@ async function clickConversation(page: any, recipientName: string): Promise<bool
         }
     }
 
-    // Strategy 2: getByText
     try {
         const nameLink = page.getByText(recipientName, { exact: false }).first();
         if (await nameLink.isVisible({ timeout: 2000 }).catch(() => false)) {
@@ -53,9 +43,8 @@ async function clickConversation(page: any, recipientName: string): Promise<bool
             await humanClick(nameLink);
             return true;
         }
-    } catch { /* not found */ }
+    } catch { }
 
-    // Strategy 3: anchor containing name
     try {
         const links = page.locator(`a:has-text("${recipientName}")`);
         if (await links.first().isVisible({ timeout: 2000 }).catch(() => false)) {
@@ -63,7 +52,7 @@ async function clickConversation(page: any, recipientName: string): Promise<bool
             await humanClick(links.first());
             return true;
         }
-    } catch { /* not found */ }
+    } catch { }
 
     console.log(`No conversation found for "${recipientName}"`);
     return false;
@@ -77,12 +66,10 @@ export async function readMessages(
     let currentStep = "init";
 
     try {
-        // Navigate
         currentStep = "navigate-to-messaging";
         await navigateToMessaging(page);
         await dumpDOM(page, "read-after-nav");
 
-        // Find & click conversation
         if (recipientName) {
             currentStep = "search-recipient";
             const searchInput = await findMessagingSearchInput(page);
@@ -101,12 +88,11 @@ export async function readMessages(
                     step: currentStep,
                 };
             }
-            await randomDelay(2000, 3000); // Wait for thread to render
+            await randomDelay(2000, 3000);
         }
 
         await dumpDOM(page, "read-conversation-loaded");
 
-        // Wait for message thread to render
         currentStep = "wait-for-thread";
 
         const mainArea = page.locator("main, [role='main']").first();
@@ -120,18 +106,15 @@ export async function readMessages(
         await page.waitForTimeout(1500);
         await dumpDOM(page, "read-before-extract");
 
-        // Dump raw thread text
         currentStep = "dump-raw-thread";
         const thread = page.locator("main, [role='main']").last();
         const rawThreadText = await thread.innerText().catch(() => "");
         console.log("RAW THREAD TEXT:", rawThreadText);
         await dumpDOM(page, "read-raw-thread");
 
-        // Extract messages via multiple strategies
         currentStep = "extract-messages";
         const messages: MessageData[] = [];
 
-        // Strategy A: div[dir='ltr'] (Standard message container)
         const msgDivs = page.locator("div[dir='ltr']");
         const msgCount = await msgDivs.count();
         console.log(`Strategy A: Found ${msgCount} div[dir='ltr'] elements`);
@@ -140,7 +123,6 @@ export async function readMessages(
             const startIdx = Math.max(0, msgCount - count);
             for (let i = startIdx; i < msgCount; i++) {
                 const body = (await msgDivs.nth(i).innerText().catch(() => "")).trim();
-                // Filter out reactions/meta text
                 if (body && body.length > 0 &&
                     !/^react(ion)?/i.test(body) &&
                     !/^remove reaction/i.test(body) &&
@@ -152,7 +134,6 @@ export async function readMessages(
             }
         }
 
-        // Strategy B: role=article (Fallback wrapper)
         if (messages.length === 0) {
             const articles = page.getByRole("article");
             const artCount = await articles.count();
@@ -164,7 +145,6 @@ export async function readMessages(
                     const article = articles.nth(i);
                     const body = (await article.innerText().catch(() => "")).trim();
 
-                    // Try to find sender inside article
                     const sender = await article.locator("strong").first()
                         .innerText().catch(() => "Unknown");
 
@@ -175,7 +155,6 @@ export async function readMessages(
             }
         }
 
-        // Strategy C: span[data-view-name] (Fallback)
         if (messages.length === 0) {
             const spans = page.locator("span[data-view-name]");
             const spanCount = await spans.count();
@@ -195,10 +174,6 @@ export async function readMessages(
         console.log("EXTRACTED messages:", JSON.stringify(messages, null, 2));
 
         if (messages.length > 0 && recipientName) {
-            /* 
-               Note: For a robust fix, we'd need to re-group messages by 
-               their visual container. For now, we return them as "Unknown".
-            */
             const hasUnknown = messages.some(m => m.sender === "Unknown");
             if (hasUnknown) {
                 console.log("Attempting to resolve 'Unknown' senders...");
