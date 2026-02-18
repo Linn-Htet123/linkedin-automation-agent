@@ -1,0 +1,16 @@
+{
+  "id": "linkedin",
+  "name": "LinkedIn Automation",
+  "description": "Send messages, read conversations, and search profiles on LinkedIn via browser automation.",
+  "version": "1.0.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "backendUrl": {
+        "type": "string",
+        "description": "URL of the LinkedIn automation backend (default: http://localhost:3001)"
+      }
+    }
+  }
+}

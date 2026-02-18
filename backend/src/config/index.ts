@@ -5,7 +5,6 @@ import path from "path";
 dotenv.config();
 
 const envSchema = z.object({
-    ANTHROPIC_API_KEY: z.string().min(1, "ANTHROPIC_API_KEY is required"),
     LINKEDIN_EMAIL: z.string().email("Valid LinkedIn email is required"),
     LINKEDIN_PASSWORD: z.string().min(1, "LINKEDIN_PASSWORD is required"),
     PORT: z.string().default("3001"),

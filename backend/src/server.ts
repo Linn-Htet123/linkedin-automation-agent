@@ -5,19 +5,21 @@
  * Next.js/React frontend can call.
  *
  * Routes:
- *   POST /api/command        — Send a natural language command
- *   GET  /api/status         — Check if the agent is ready
- *   POST /api/init           — Initialize the LinkedIn session
- *   GET  /api/setup/status   — Check setup progress
+ *   POST /api/command          — Send a natural language command (→ OpenClaw)
+ *   POST /api/linkedin-tool    — Internal: execute a Playwright action directly
+ *   GET  /api/status           — Check if the agent is ready
+ *   POST /api/init             — Initialize the LinkedIn session
+ *   GET  /api/setup/status     — Check setup progress
  *   POST /api/setup/credentials — Save credentials
- *   POST /api/setup/browser  — Install Chromium
+ *   POST /api/setup/browser    — Install Chromium
  */
 
 import express from "express";
 import cors from "cors";
 import { config } from "./config/index.js";
-import { processCommand, HistoryMessage } from "./agent/index.js";
+import { processCommand } from "./agent/index.js";
 import { sessionManager } from "./linkedin/session-manager.js";
+import { sendMessage, readMessages, searchProfile } from "./linkedin/actions.js";
 import setupRoutes from "./routes/setup.js";
 
 const app = express();
@@ -73,7 +75,8 @@ app.post("/api/init", async (_req, res) => {
 });
 
 /**
- * Process a natural language command.
+ * Process a natural language command via OpenClaw's agent.
+ * OpenClaw handles Claude, tool calling, and conversation history.
  */
 app.post("/api/command", async (req, res) => {
     if (!isInitialized) {
@@ -82,7 +85,7 @@ app.post("/api/command", async (req, res) => {
         });
     }
 
-    const { command, history } = req.body;
+    const { command } = req.body;
 
     if (!command || typeof command !== "string") {
         return res.status(400).json({
@@ -90,51 +93,81 @@ app.post("/api/command", async (req, res) => {
         });
     }
 
-    // Validate history if provided
-    const safeHistory: HistoryMessage[] = Array.isArray(history)
-        ? history.filter(
-            (h): h is HistoryMessage =>
-                typeof h === "object" &&
-                (h.role === "user" || h.role === "assistant") &&
-                typeof h.content === "string"
-        )
-        : [];
-
     try {
-        const result = await processCommand(command, safeHistory);
-
-        // Extract step/debug info from action results for better error reporting
-        const actions = result.actions.map((a) => {
-            const r = a.result as Record<string, unknown>;
-            return {
-                tool: a.tool,
-                input: a.input,
-                success: r?.success ?? true,
-                step: r?.step,
-                debugAvailable: r?.debugAvailable ?? false,
-            };
-        });
-
-        const anyFailed = actions.some((a) => !a.success);
+        const result = await processCommand(command);
 
         res.json({
-            success: !anyFailed,
+            success: true,
             response: result.response,
-            actions,
-            ...(anyFailed && {
-                error: "One or more actions failed. See individual action results.",
-                step: actions.find((a) => !a.success)?.step,
-                debugAvailable: actions.some((a) => a.debugAvailable),
-            }),
+            actions: result.actions,
         });
     } catch (error) {
         const msg = error instanceof Error ? error.message : "Unknown error";
         res.status(500).json({
             success: false,
             error: msg,
-            step: "server-error",
+            step: "openclaw-error",
             debugAvailable: false,
         });
+    }
+});
+
+/**
+ * Internal endpoint called by the OpenClaw LinkedIn plugin.
+ * Executes Playwright actions directly — bypasses the agent loop
+ * to avoid circular calls (plugin → agent → plugin).
+ */
+app.post("/api/linkedin-tool", async (req, res) => {
+    if (!isInitialized) {
+        return res.status(400).json({
+            success: false,
+            error: "LinkedIn session not initialized. POST /api/init first.",
+        });
+    }
+
+    const { tool, params } = req.body as {
+        tool: "send_message" | "read_messages" | "search_profile";
+        params: Record<string, unknown>;
+    };
+
+    try {
+        let result: unknown;
+
+        switch (tool) {
+            case "send_message":
+                result = await sendMessage(
+                    params.recipient_name as string,
+                    params.message_text as string,
+                );
+                break;
+
+            case "read_messages": {
+                const readResult = await readMessages(
+                    params.person_name as string | undefined,
+                    (params.count as number) || 10,
+                );
+                if (!readResult.success) {
+                    return res.json({ success: false, error: readResult.error });
+                }
+                result = readResult.messages;
+                break;
+            }
+
+            case "search_profile":
+                result = await searchProfile(params.name as string);
+                break;
+
+            default:
+                return res.status(400).json({
+                    success: false,
+                    error: `Unknown tool: ${tool}`,
+                });
+        }
+
+        res.json({ success: true, result });
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : "Unknown error";
+        res.status(500).json({ success: false, error: msg });
     }
 });
 
@@ -147,6 +180,7 @@ app.listen(config.PORT, () => {
     console.log(`  🚀 Init:      POST http://localhost:${config.PORT}/api/init`);
     console.log(`  💬 Command:   POST http://localhost:${config.PORT}/api/command`);
     console.log(`  🔧 Setup:     http://localhost:${config.PORT}/api/setup/status`);
+    console.log(`  🦞 OpenClaw:  gateway at ws://127.0.0.1:18789`);
     console.log(`  ────────────────────────────────────────\n`);
 });
 

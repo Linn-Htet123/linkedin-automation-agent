@@ -48,9 +48,6 @@ function buildEnvFile(values: Record<string, string>): string {
         "# LinkedIn Automation Agent - Environment Config",
         "# ============================================",
         "",
-        "# Anthropic Claude API Key (required)",
-        `ANTHROPIC_API_KEY=${values.ANTHROPIC_API_KEY || ""}`,
-        "",
         "# LinkedIn Credentials (for browser automation login)",
         `LINKEDIN_EMAIL=${values.LINKEDIN_EMAIL || ""}`,
         `LINKEDIN_PASSWORD=${values.LINKEDIN_PASSWORD || ""}`,
@@ -78,16 +75,11 @@ router.get("/status", async (_req, res) => {
     try {
         // Check 1: Do we have a .env file with real credentials?
         let hasCredentials = false;
-        let hasApiKey = false;
         let email = "";
 
         try {
             const envContent = await fs.readFile(ENV_FILE, "utf-8");
             const env = parseEnvFile(envContent);
-            hasApiKey =
-                !!env.ANTHROPIC_API_KEY &&
-                env.ANTHROPIC_API_KEY !== "sk-ant-api03-your-key-here" &&
-                env.ANTHROPIC_API_KEY.length > 10;
             hasCredentials =
                 !!env.LINKEDIN_EMAIL &&
                 env.LINKEDIN_EMAIL !== "your-email@example.com" &&
@@ -134,12 +126,12 @@ router.get("/status", async (_req, res) => {
 
         res.json({
             steps: {
-                credentials: hasCredentials && hasApiKey,
+                credentials: hasCredentials,
                 browser: hasBrowser,
                 session: hasSession,
             },
             email: email,
-            allComplete: hasCredentials && hasApiKey && hasBrowser,
+            allComplete: hasCredentials && hasBrowser,
         });
     } catch (error) {
         const msg = error instanceof Error ? error.message : "Unknown error";
@@ -153,11 +145,11 @@ router.get("/status", async (_req, res) => {
 // ============================================================
 router.post("/credentials", async (req, res) => {
     try {
-        const { linkedinEmail, linkedinPassword, anthropicApiKey } = req.body;
+        const { linkedinEmail, linkedinPassword } = req.body;
 
-        if (!linkedinEmail || !linkedinPassword || !anthropicApiKey) {
+        if (!linkedinEmail || !linkedinPassword) {
             return res.status(400).json({
-                error: "All fields are required: linkedinEmail, linkedinPassword, anthropicApiKey",
+                error: "All fields are required: linkedinEmail, linkedinPassword",
             });
         }
 
@@ -171,7 +163,6 @@ router.post("/credentials", async (req, res) => {
         }
 
         // Update credentials
-        existing.ANTHROPIC_API_KEY = anthropicApiKey;
         existing.LINKEDIN_EMAIL = linkedinEmail;
         existing.LINKEDIN_PASSWORD = linkedinPassword;
 

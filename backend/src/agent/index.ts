@@ -1,117 +1,22 @@
 /**
- * Claude AI Agent — The "Brain" of the Digital Twin
+ * OpenClaw Agent Bridge
  *
- * This module wraps the Anthropic Claude 3.5 Sonnet API to:
- * 1. Parse natural language commands ("Send a message to Nadav...")
- * 2. Determine the appropriate LinkedIn action (send, read, search)
- * 3. Extract structured parameters (recipient, message content)
- * 4. Execute the action via the LinkedIn actions module
- * 5. Return a human-readable response
+ * Replaces the direct Anthropic SDK with OpenClaw as the AI brain.
+ * Sends commands to the OpenClaw gateway via the `openclaw agent` CLI,
+ * which handles Claude, tool calling, and conversation history internally.
  *
- * This is the core integration point with the OpenClaw framework —
- * in OpenClaw, this would be wired as a "skill" that the agent can invoke.
+ * The LinkedIn tools (send, read, search) are registered in the OpenClaw
+ * plugin (openclaw-plugin/index.ts) and called by OpenClaw's agent loop.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-import { config } from "../config/index.js";
-import {
-    sendMessage,
-    readMessages,
-    searchProfile,
-    type MessageData,
-} from "../linkedin/actions.js";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import type { MessageData } from "../linkedin/actions.js";
 
-const anthropic = new Anthropic({
-    apiKey: config.ANTHROPIC_API_KEY,
-});
+const execFileAsync = promisify(execFile);
 
 // ============================================================
-// TOOL DEFINITIONS (Claude Tool Use / Function Calling)
-// ============================================================
-
-const LINKEDIN_TOOLS: Anthropic.Tool[] = [
-    {
-        name: "send_linkedin_message",
-        description:
-            "Send a direct message to a LinkedIn connection. " +
-            "Use this when the user wants to message someone on LinkedIn.",
-        input_schema: {
-            type: "object" as const,
-            properties: {
-                recipient_name: {
-                    type: "string",
-                    description:
-                        "The name of the LinkedIn connection to message (e.g., 'Nadav', 'John Smith')",
-                },
-                message_text: {
-                    type: "string",
-                    description:
-                        "The message content to send. If the user gives a summary, " +
-                        "expand it into a professional LinkedIn message.",
-                },
-            },
-            required: ["recipient_name", "message_text"],
-        },
-    },
-    {
-        name: "read_linkedin_messages",
-        description:
-            "Read recent messages from LinkedIn — either all recent or from a specific person.",
-        input_schema: {
-            type: "object" as const,
-            properties: {
-                person_name: {
-                    type: "string",
-                    description:
-                        "Optional: name of the person to read messages from. " +
-                        "If not provided, reads the most recent conversations.",
-                },
-                count: {
-                    type: "number",
-                    description: "Number of recent messages to retrieve (default: 10).",
-                },
-            },
-            required: [],
-        },
-    },
-    {
-        name: "search_linkedin_profile",
-        description:
-            "Search for a person's LinkedIn profile by name.",
-        input_schema: {
-            type: "object" as const,
-            properties: {
-                name: {
-                    type: "string",
-                    description: "The name of the person to search for on LinkedIn.",
-                },
-            },
-            required: ["name"],
-        },
-    },
-];
-
-// ============================================================
-// SYSTEM PROMPT
-// ============================================================
-
-const SYSTEM_PROMPT = `You are a LinkedIn Digital Twin agent for Geodo. Your job is to help the user manage their LinkedIn outreach by:
-
-1. **Sending Messages**: When the user says things like "Send a message to Nadav saying I have started the task", use the send_linkedin_message tool.
-2. **Reading Messages**: When the user wants to check messages, use the read_linkedin_messages tool.
-3. **Searching Profiles**: When the user wants to find someone, use the search_linkedin_profile tool.
-
-Guidelines:
-- Always be professional and courteous in messages you compose.
-- If the user provides a casual/shorthand instruction like "tell Nadav I started", expand it into a professional but friendly LinkedIn message.
-- Confirm actions before and after execution.
-- If something fails, explain the error clearly and suggest a fix.
-- You can chain multiple actions if needed (e.g., search for a profile, then send a message).
-
-You are operating as a browser automation agent. The LinkedIn session is managed securely with saved cookies.`;
-
-// ============================================================
-// AGENT EXECUTION
+// TYPES
 // ============================================================
 
 export interface AgentResult {
@@ -125,123 +30,78 @@ interface ActionLog {
     result: unknown;
 }
 
-/** A single prior turn passed in from the frontend. */
-export interface HistoryMessage {
-    role: "user" | "assistant";
-    content: string;
+/** OpenClaw agent --json output shape */
+interface OpenClawAgentResult {
+    status: "ok" | "error";
+    summary?: string;
+    result?: {
+        payloads?: Array<{ text: string | null; mediaUrl: string | null }>;
+        meta?: {
+            durationMs?: number;
+            agentMeta?: {
+                sessionId?: string;
+                provider?: string;
+                model?: string;
+            };
+        };
+    };
+    error?: string;
 }
 
+// ============================================================
+// AGENT EXECUTION
+// ============================================================
+
 /**
- * Process a natural language command through the Claude agent.
- * Claude will decide which LinkedIn tool(s) to call.
+ * Process a natural language command through OpenClaw's agent.
+ * OpenClaw handles Claude, tool calling, and conversation history.
  */
 export async function processCommand(
     userCommand: string,
-    history: HistoryMessage[] = [],
 ): Promise<AgentResult> {
-    console.log(`\n🧠 Processing command: "${userCommand}" (history: ${history.length} turns)`);
+    console.log(`\n🦞 Sending to OpenClaw: "${userCommand}"`);
 
-    const actions: ActionLog[] = [];
-
-    // Build messages: prior turns + current user message
-    const messages: Anthropic.MessageParam[] = [
-        ...history.map((h) => ({ role: h.role, content: h.content } as Anthropic.MessageParam)),
-        { role: "user", content: userCommand },
-    ];
-
-    // Initial request to Claude with tool definitions
-    let response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        system: SYSTEM_PROMPT,
-        tools: LINKEDIN_TOOLS,
-        messages,
-    });
-
-    // Agentic loop: keep processing until Claude is done with tool calls
-    // (messages is already initialized above — reuse it for tool loop)
-
-    while (response.stop_reason === "tool_use") {
-        // Collect all tool use blocks
-        const toolUseBlocks = response.content.filter(
-            (block): block is Anthropic.ToolUseBlock => block.type === "tool_use"
+    try {
+        const { stdout, stderr } = await execFileAsync(
+            "openclaw",
+            ["agent", "--agent", "main", "--message", userCommand, "--json"],
+            {
+                timeout: 120_000, // 2 minute timeout
+                env: process.env,
+            }
         );
 
-        // Add the assistant's response to message history
-        messages.push({ role: "assistant", content: response.content });
-
-        // Execute each tool call and collect results
-        const toolResults: Anthropic.ToolResultBlockParam[] = [];
-
-        for (const toolUse of toolUseBlocks) {
-            console.log(`🔧 Executing tool: ${toolUse.name}`);
-            const input = toolUse.input as Record<string, unknown>;
-            let result: unknown;
-
-            try {
-                switch (toolUse.name) {
-                    case "send_linkedin_message":
-                        result = await sendMessage(
-                            input.recipient_name as string,
-                            input.message_text as string
-                        );
-                        break;
-
-                    case "read_linkedin_messages":
-                        result = await readMessages(
-                            input.person_name as string | undefined,
-                            (input.count as number) || 10
-                        );
-                        break;
-
-                    case "search_linkedin_profile":
-                        result = await searchProfile(input.name as string);
-                        break;
-
-                    default:
-                        result = { error: `Unknown tool: ${toolUse.name}` };
-                }
-            } catch (error) {
-                result = {
-                    error:
-                        error instanceof Error
-                            ? error.message
-                            : "Unknown error during tool execution",
-                };
-            }
-
-            actions.push({ tool: toolUse.name, input, result });
-
-            toolResults.push({
-                type: "tool_result",
-                tool_use_id: toolUse.id,
-                content: JSON.stringify(result),
-            });
+        if (stderr) {
+            console.warn(`⚠️  OpenClaw stderr: ${stderr}`);
         }
 
-        // Send tool results back to Claude
-        messages.push({ role: "user", content: toolResults });
+        // Parse the JSON output from openclaw agent --json
+        const parsed: OpenClawAgentResult = JSON.parse(stdout.trim());
 
-        response = await anthropic.messages.create({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 4096,
-            system: SYSTEM_PROMPT,
-            tools: LINKEDIN_TOOLS,
-            messages,
-        });
+        if (parsed.status === "error") {
+            throw new Error(parsed.error ?? "OpenClaw agent returned an error");
+        }
+
+        // Extract the text response from payloads
+        const payloads = parsed.result?.payloads ?? [];
+        const responseText = payloads
+            .map((p) => p.text ?? "")
+            .filter(Boolean)
+            .join("\n")
+            || "Action completed.";
+
+        console.log(`\n💬 OpenClaw response: ${responseText}`);
+
+        return {
+            response: responseText,
+            actions: [], // OpenClaw manages tool call logs internally
+        };
+    } catch (error) {
+        if (error instanceof SyntaxError) {
+            throw new Error("Failed to parse OpenClaw agent response as JSON");
+        }
+        throw error;
     }
-
-    // Extract final text response
-    const textBlocks = response.content.filter(
-        (block): block is Anthropic.TextBlock => block.type === "text"
-    );
-    const finalResponse =
-        textBlocks.map((b) => b.text).join("\n") ||
-        "Action completed successfully.";
-
-    console.log(`\n💬 Agent response: ${finalResponse}`);
-
-    return { response: finalResponse, actions };
 }
 
 /**
@@ -249,11 +109,7 @@ export async function processCommand(
  */
 export function formatMessages(messages: MessageData[]): string {
     if (messages.length === 0) return "No messages found.";
-
     return messages
-        .map(
-            (m) =>
-                `[${m.timestamp}] ${m.sender}: ${m.body}`
-        )
+        .map((m) => `[${m.timestamp}] ${m.sender}: ${m.body}`)
         .join("\n");
 }

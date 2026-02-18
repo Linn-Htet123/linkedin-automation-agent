@@ -52,7 +52,6 @@ async function fetchSetupStatus(): Promise<SetupStatus> {
 async function saveCredentials(data: {
   linkedinEmail: string;
   linkedinPassword: string;
-  anthropicApiKey: string;
 }): Promise<{ success: boolean; message: string; error?: string }> {
   const res = await fetch(`${API_BASE}/api/setup/credentials`, {
     method: "POST",
@@ -89,10 +88,7 @@ async function initializeAgent(): Promise<{
   return res.json();
 }
 
-async function sendCommand(
-  command: string,
-  history: Array<{ role: "user" | "assistant"; content: string }> = [],
-): Promise<{
+async function sendCommand(command: string): Promise<{
   success: boolean;
   response: string;
   actions?: ActionInfo[];
@@ -103,7 +99,7 @@ async function sendCommand(
   const res = await fetch(`${API_BASE}/api/command`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ command, history }),
+    body: JSON.stringify({ command }),
   });
   return res.json();
 }
@@ -223,9 +219,7 @@ function SetupWizard({
   // Credentials form state
   const [email, setEmail] = useState(initialStatus?.email || "");
   const [password, setPassword] = useState("");
-  const [apiKey, setApiKey] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -235,8 +229,8 @@ function SetupWizard({
 
   const handleSaveCredentials = async () => {
     setError("");
-    if (!email || !password || !apiKey) {
-      setError("All fields are required.");
+    if (!email || !password) {
+      setError("Both fields are required.");
       return;
     }
 
@@ -245,7 +239,6 @@ function SetupWizard({
       const result = await saveCredentials({
         linkedinEmail: email,
         linkedinPassword: password,
-        anthropicApiKey: apiKey,
       });
 
       if (result.success) {
@@ -304,7 +297,7 @@ function SetupWizard({
           <span className="app-logo-text">LinkedIn Digital Twin</span>
         </div>
         <p className="app-subtitle">
-          Let&apos;s get you set up — no terminal needed!
+          Powered by OpenClaw — no terminal needed!
         </p>
       </header>
 
@@ -347,9 +340,9 @@ function SetupWizard({
           <div className="setup-step" id="step-credentials">
             <h2 className="setup-title">🔑 Enter Your Credentials</h2>
             <p className="setup-desc">
-              We need your LinkedIn login and Claude API key to power the
-              automation. These are saved locally on your machine — never sent
-              to any third party.
+              We need your LinkedIn login to power the automation. These are
+              saved locally on your machine — never sent to any third party. The
+              AI is handled by OpenClaw (no API key needed here).
             </p>
 
             <div className="form-group">
@@ -388,40 +381,6 @@ function SetupWizard({
                   {showPassword ? "🙈" : "👁️"}
                 </button>
               </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="input-api-key">
-                Claude API Key
-              </label>
-              <div className="form-input-wrapper">
-                <input
-                  id="input-api-key"
-                  type={showApiKey ? "text" : "password"}
-                  className="form-input"
-                  placeholder="sk-ant-api03-..."
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="toggle-visibility"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  id="toggle-api-key"
-                >
-                  {showApiKey ? "🙈" : "👁️"}
-                </button>
-              </div>
-              <p className="form-hint">
-                Get your API key from{" "}
-                <a
-                  href="https://console.anthropic.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  console.anthropic.com
-                </a>
-              </p>
             </div>
 
             {error && <div className="form-error">{error}</div>}
@@ -616,15 +575,7 @@ function MainApp({
     }
 
     try {
-      // Build history from existing messages for Claude context
-      // Map chat messages to the user/assistant format Claude expects
-      // Cap at last 20 turns to avoid token bloat
-      const history = messages.slice(-20).map((msg) => ({
-        role: msg.role === "user" ? ("user" as const) : ("assistant" as const),
-        content: msg.content,
-      }));
-
-      const data = await sendCommand(command, history);
+      const data = await sendCommand(command);
       if (data.success) {
         addAgentMessage(data.response, data.actions);
       } else {
@@ -770,7 +721,7 @@ function MainApp({
                 </div>
                 <div className="chat-bubble">
                   <div className="chat-sender">
-                    {msg.role === "user" ? "You" : "LinkedIn Agent"}
+                    {msg.role === "user" ? "You" : "🦞 OpenClaw Agent"}
                   </div>
                   <div className="chat-content">
                     <div className="chat-text">{msg.content}</div>
@@ -821,7 +772,7 @@ function MainApp({
                       <span />
                       <span />
                     </div>
-                    Thinking & executing actions...
+                    Thinking & executing via OpenClaw...
                   </div>
                 </div>
               </div>
