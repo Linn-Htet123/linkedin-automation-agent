@@ -26,7 +26,7 @@ export class LinkedInSessionManager {
      * Returns a ready-to-use Page object logged into LinkedIn.
      */
     async initialize(): Promise<Page> {
-        console.log("🚀 Initializing LinkedIn browser session...");
+        console.log("Initializing LinkedIn browser session...");
 
         // Ensure session directory exists
         await fs.mkdir(config.SESSION_DIR, { recursive: true });
@@ -47,19 +47,19 @@ export class LinkedInSessionManager {
         const hasSession = await this.loadSession();
 
         if (!hasSession) {
-            // No saved session — do a fresh login (no need to verify after)
-            console.log("📝 No saved session found. Starting fresh login...");
+            // No saved session — do a fresh login
+            console.log("No saved session found. Starting fresh login...");
             await this.freshLogin();
         } else {
             // We loaded a saved session — verify it's still valid
             const isLoggedIn = await this.verifyLogin();
             if (!isLoggedIn) {
-                console.log("🔄 Session expired. Re-authenticating...");
+                console.log("Session expired. Re-authenticating...");
                 await this.freshLogin();
             }
         }
 
-        console.log("✅ LinkedIn session ready!");
+        console.log("LinkedIn session ready!");
         return this.page!;
     }
 
@@ -82,7 +82,7 @@ export class LinkedInSessionManager {
             });
 
             this.page = await this.context.newPage();
-            console.log("📂 Loaded saved session from disk.");
+            console.log("Loaded saved session from disk.");
             return true;
         } catch {
             return false;
@@ -124,15 +124,15 @@ export class LinkedInSessionManager {
         // Wait for navigation — LinkedIn may show a CAPTCHA or 2FA challenge
         try {
             await this.page.waitForURL("**/feed/**", { timeout: 30_000 });
-            console.log("✅ Login successful!");
+            console.log("Login successful!");
         } catch {
             // If we didn't reach the feed, we might need manual intervention
-            console.log("⚠️  Login requires manual intervention (CAPTCHA/2FA).");
+            console.log("Login requires manual intervention (CAPTCHA/2FA).");
             console.log("   Complete the challenge in the browser window.");
             console.log("   Waiting up to 120 seconds...");
 
             await this.page.waitForURL("**/feed/**", { timeout: 120_000 });
-            console.log("✅ Login completed after manual intervention!");
+            console.log("Login completed after manual intervention!");
         }
 
         // Save the session
@@ -140,14 +140,14 @@ export class LinkedInSessionManager {
     }
 
     /**
-     * Save the current browser session (cookies + storage) to disk.
+     * Save the current browser session to disk.
      */
     private async saveSession(): Promise<void> {
         if (!this.context) return;
 
         const storageState = await this.context.storageState();
         await fs.writeFile(SESSION_FILE, JSON.stringify(storageState, null, 2));
-        console.log("💾 Session saved to disk.");
+        console.log("Session saved to disk.");
     }
 
     /**
@@ -211,7 +211,7 @@ export class LinkedInSessionManager {
         this.browser = null;
         this.context = null;
         this.page = null;
-        console.log("🔒 Browser session closed and saved.");
+        console.log("Browser session closed and saved.");
     }
 }
 

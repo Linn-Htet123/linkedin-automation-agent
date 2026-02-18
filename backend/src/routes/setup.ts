@@ -176,7 +176,7 @@ router.post("/credentials", async (req, res) => {
         // Write .env
         await fs.writeFile(ENV_FILE, buildEnvFile(existing), "utf-8");
 
-        console.log("✅ Credentials saved to .env");
+        console.log("Credentials saved to .env");
         res.json({
             success: true,
             message: "Credentials saved! The server will need to restart to pick up new values.",
@@ -193,7 +193,7 @@ router.post("/credentials", async (req, res) => {
 // ============================================================
 router.post("/browser", async (_req, res) => {
     try {
-        console.log("📦 Installing Playwright Chromium...");
+        console.log("Installing Playwright Chromium...");
 
         const { stdout, stderr } = await execAsync(
             "npx playwright install chromium 2>&1",
@@ -203,7 +203,7 @@ router.post("/browser", async (_req, res) => {
             },
         );
 
-        console.log("✅ Browser installation complete");
+        console.log("Browser installation complete");
         console.log(stdout);
         if (stderr) console.error(stderr);
 
@@ -214,7 +214,7 @@ router.post("/browser", async (_req, res) => {
         });
     } catch (error) {
         const msg = error instanceof Error ? error.message : "Unknown error";
-        console.error(`❌ Browser installation failed: ${msg}`);
+        console.error(`Browser installation failed: ${msg}`);
         res.status(500).json({
             success: false,
             error: `Browser installation failed: ${msg}`,
