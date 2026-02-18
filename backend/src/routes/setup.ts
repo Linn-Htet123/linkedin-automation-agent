@@ -40,23 +40,13 @@ function buildEnvFile(values: Record<string, string>): string {
     return lines.join("\n");
 }
 
+import { accountManager } from "../linkedin/account-manager.js";
+
 router.get("/status", async (_req, res) => {
     try {
-        let hasCredentials = false;
-        let email = "";
-
-        try {
-            const envContent = await fs.readFile(ENV_FILE, "utf-8");
-            const env = parseEnvFile(envContent);
-            hasCredentials =
-                !!env.LINKEDIN_EMAIL &&
-                env.LINKEDIN_EMAIL !== "your-email@example.com" &&
-                !!env.LINKEDIN_PASSWORD &&
-                env.LINKEDIN_PASSWORD !== "your-password-here" &&
-                env.LINKEDIN_PASSWORD.length > 0;
-            email = env.LINKEDIN_EMAIL || "";
-        } catch {
-        }
+        const accounts = await accountManager.getAccounts();
+        const hasCredentials = accounts.length > 0;
+        const email = hasCredentials ? accounts[0].email : "";
 
         let hasBrowser = false;
         try {

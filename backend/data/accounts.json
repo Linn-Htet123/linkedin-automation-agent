@@ -1,0 +1,17 @@
+{
+  "accounts": [
+    {
+      "id": "larry.tlh.linnhtet@gmail.com",
+      "email": "larry.tlh.linnhtet@gmail.com",
+      "password": "sk-ant-api03-zuaSx72tIboEYDftO8VEqBoT8LlO-passwordVgp-3qtXih8SQY5dxZLW9VjZ8WU-MRMgAmaZfFWPR-1kPd8Di060dJtsg-QrDztAAA",
+      "isActive": false
+    },
+    {
+      "id": "test@example.com",
+      "email": "test@example.com",
+      "password": "password",
+      "isActive": false
+    }
+  ],
+  "activeAccountId": "larry.tlh.linnhtet@gmail.com"
+}

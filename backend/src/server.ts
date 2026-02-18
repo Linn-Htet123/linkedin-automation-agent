@@ -21,6 +21,7 @@ import { processCommand } from "./agent/index.js";
 import { sessionManager } from "./linkedin/session-manager.js";
 import { sendMessage, readMessages, searchProfile } from "./linkedin/actions.js";
 import setupRoutes from "./routes/setup.js";
+import accountsRouter from "./routes/accounts.js";
 
 const app = express();
 
@@ -33,6 +34,7 @@ let isInitializing = false;
 
 // ---- Mount Setup Routes ----
 app.use("/api/setup", setupRoutes);
+app.use("/api/accounts", accountsRouter);
 
 // ---- Routes ----
 

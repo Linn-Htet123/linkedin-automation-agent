@@ -33,6 +33,7 @@ export const config = {
     ...parsed.data,
     PORT: parseInt(parsed.data.PORT, 10),
     SESSION_DIR: path.resolve(parsed.data.SESSION_DIR),
+    BACKEND_DIR: path.resolve(process.cwd()),
 } as const;
 
 export type Config = typeof config;

@@ -2,17 +2,29 @@ import { chromium, type Browser, type BrowserContext, type Page } from "playwrig
 import fs from "fs/promises";
 import path from "path";
 import { config } from "../config/index.js";
+import { accountManager } from "./account-manager.js";
 
 const LINKEDIN_URL = "https://www.linkedin.com";
-const SESSION_FILE = path.join(config.SESSION_DIR, "linkedin-session.json");
 
 export class LinkedInSessionManager {
     private browser: Browser | null = null;
     private context: BrowserContext | null = null;
     private page: Page | null = null;
+    private currentAccountId: string | null = null;
 
-    async initialize(): Promise<Page> {
+    async initialize(accountId?: string): Promise<Page> {
         console.log("Initializing LinkedIn browser session...");
+
+        // If specific account requested, switch to it. Otherwise use active.
+        if (accountId) {
+            await accountManager.setActiveAccount(accountId);
+        }
+
+        const activeAccount = await accountManager.getActiveAccount();
+        if (!activeAccount) {
+            throw new Error("No active LinkedIn account found. Please add an account first.");
+        }
+        this.currentAccountId = activeAccount.id;
 
         await fs.mkdir(config.SESSION_DIR, { recursive: true });
 
@@ -30,23 +42,31 @@ export class LinkedInSessionManager {
         const hasSession = await this.loadSession();
 
         if (!hasSession) {
-            console.log("No saved session found. Starting fresh login...");
+            console.log(`No saved session found for ${activeAccount.email}. Starting fresh login...`);
             await this.freshLogin();
         } else {
             const isLoggedIn = await this.verifyLogin();
             if (!isLoggedIn) {
-                console.log("Session expired. Re-authenticating...");
+                console.log(`Session expired for ${activeAccount.email}. Re-authenticating...`);
                 await this.freshLogin();
             }
         }
 
-        console.log("LinkedIn session ready!");
+        console.log(`LinkedIn session ready for ${activeAccount.email}!`);
         return this.page!;
+    }
+
+    private getSessionFilePath(): string {
+        if (!this.currentAccountId) throw new Error("No active account ID");
+        // Sanitize ID for filename
+        const safeId = this.currentAccountId.replace(/[^a-z0-9]/gi, '_');
+        return path.join(config.SESSION_DIR, `linkedin-session-${safeId}.json`);
     }
 
     private async loadSession(): Promise<boolean> {
         try {
-            const sessionData = await fs.readFile(SESSION_FILE, "utf-8");
+            const sessionFile = this.getSessionFilePath();
+            const sessionData = await fs.readFile(sessionFile, "utf-8");
             const storageState = JSON.parse(sessionData);
 
             this.context = await this.browser!.newContext({
@@ -68,6 +88,9 @@ export class LinkedInSessionManager {
     }
 
     private async freshLogin(): Promise<void> {
+        const activeAccount = await accountManager.getActiveAccount();
+        if (!activeAccount) throw new Error("No active account for login");
+
         if (!this.context) {
             this.context = await this.browser!.newContext({
                 userAgent:
@@ -86,8 +109,8 @@ export class LinkedInSessionManager {
             timeout: 60_000,
         });
 
-        await this.page.fill('input[id="username"]', config.LINKEDIN_EMAIL);
-        await this.page.fill('input[id="password"]', config.LINKEDIN_PASSWORD);
+        await this.page.fill('input[id="username"]', activeAccount.email);
+        await this.page.fill('input[id="password"]', activeAccount.password);
 
         await this.page.click('button[type="submit"]');
 
@@ -109,7 +132,7 @@ export class LinkedInSessionManager {
     private async saveSession(): Promise<void> {
         if (!this.context) return;
         const storageState = await this.context.storageState();
-        await fs.writeFile(SESSION_FILE, JSON.stringify(storageState, null, 2));
+        await fs.writeFile(this.getSessionFilePath(), JSON.stringify(storageState, null, 2));
         console.log("Session saved to disk.");
     }
 
@@ -163,5 +186,4 @@ export class LinkedInSessionManager {
     }
 }
 
-// Singleton instance
 export const sessionManager = new LinkedInSessionManager();
