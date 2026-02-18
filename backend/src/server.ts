@@ -16,7 +16,7 @@
 import express from "express";
 import cors from "cors";
 import { config } from "./config/index.js";
-import { processCommand } from "./agent/index.js";
+import { processCommand, HistoryMessage } from "./agent/index.js";
 import { sessionManager } from "./linkedin/session-manager.js";
 import setupRoutes from "./routes/setup.js";
 
@@ -82,7 +82,7 @@ app.post("/api/command", async (req, res) => {
         });
     }
 
-    const { command } = req.body;
+    const { command, history } = req.body;
 
     if (!command || typeof command !== "string") {
         return res.status(400).json({
@@ -90,8 +90,18 @@ app.post("/api/command", async (req, res) => {
         });
     }
 
+    // Validate history if provided
+    const safeHistory: HistoryMessage[] = Array.isArray(history)
+        ? history.filter(
+            (h): h is HistoryMessage =>
+                typeof h === "object" &&
+                (h.role === "user" || h.role === "assistant") &&
+                typeof h.content === "string"
+        )
+        : [];
+
     try {
-        const result = await processCommand(command);
+        const result = await processCommand(command, safeHistory);
 
         // Extract step/debug info from action results for better error reporting
         const actions = result.actions.map((a) => {

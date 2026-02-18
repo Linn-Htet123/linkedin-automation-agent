@@ -125,14 +125,29 @@ interface ActionLog {
     result: unknown;
 }
 
+/** A single prior turn passed in from the frontend. */
+export interface HistoryMessage {
+    role: "user" | "assistant";
+    content: string;
+}
+
 /**
  * Process a natural language command through the Claude agent.
  * Claude will decide which LinkedIn tool(s) to call.
  */
-export async function processCommand(userCommand: string): Promise<AgentResult> {
-    console.log(`\n🧠 Processing command: "${userCommand}"`);
+export async function processCommand(
+    userCommand: string,
+    history: HistoryMessage[] = [],
+): Promise<AgentResult> {
+    console.log(`\n🧠 Processing command: "${userCommand}" (history: ${history.length} turns)`);
 
     const actions: ActionLog[] = [];
+
+    // Build messages: prior turns + current user message
+    const messages: Anthropic.MessageParam[] = [
+        ...history.map((h) => ({ role: h.role, content: h.content } as Anthropic.MessageParam)),
+        { role: "user", content: userCommand },
+    ];
 
     // Initial request to Claude with tool definitions
     let response = await anthropic.messages.create({
@@ -140,18 +155,11 @@ export async function processCommand(userCommand: string): Promise<AgentResult> 
         max_tokens: 4096,
         system: SYSTEM_PROMPT,
         tools: LINKEDIN_TOOLS,
-        messages: [
-            {
-                role: "user",
-                content: userCommand,
-            },
-        ],
+        messages,
     });
 
     // Agentic loop: keep processing until Claude is done with tool calls
-    const messages: Anthropic.MessageParam[] = [
-        { role: "user", content: userCommand },
-    ];
+    // (messages is already initialized above — reuse it for tool loop)
 
     while (response.stop_reason === "tool_use") {
         // Collect all tool use blocks

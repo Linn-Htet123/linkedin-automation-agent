@@ -89,7 +89,10 @@ async function initializeAgent(): Promise<{
   return res.json();
 }
 
-async function sendCommand(command: string): Promise<{
+async function sendCommand(
+  command: string,
+  history: Array<{ role: "user" | "assistant"; content: string }> = [],
+): Promise<{
   success: boolean;
   response: string;
   actions?: ActionInfo[];
@@ -100,7 +103,7 @@ async function sendCommand(command: string): Promise<{
   const res = await fetch(`${API_BASE}/api/command`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ command }),
+    body: JSON.stringify({ command, history }),
   });
   return res.json();
 }
@@ -613,7 +616,15 @@ function MainApp({
     }
 
     try {
-      const data = await sendCommand(command);
+      // Build history from existing messages for Claude context
+      // Map chat messages to the user/assistant format Claude expects
+      // Cap at last 20 turns to avoid token bloat
+      const history = messages.slice(-20).map((msg) => ({
+        role: msg.role === "user" ? ("user" as const) : ("assistant" as const),
+        content: msg.content,
+      }));
+
+      const data = await sendCommand(command, history);
       if (data.success) {
         addAgentMessage(data.response, data.actions);
       } else {
