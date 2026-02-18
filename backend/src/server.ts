@@ -5,9 +5,12 @@
  * Next.js/React frontend can call.
  *
  * Routes:
- *   POST /api/command   — Send a natural language command
- *   GET  /api/status    — Check if the agent is ready
- *   POST /api/init      — Initialize the LinkedIn session
+ *   POST /api/command        — Send a natural language command
+ *   GET  /api/status         — Check if the agent is ready
+ *   POST /api/init           — Initialize the LinkedIn session
+ *   GET  /api/setup/status   — Check setup progress
+ *   POST /api/setup/credentials — Save credentials
+ *   POST /api/setup/browser  — Install Chromium
  */
 
 import express from "express";
@@ -15,15 +18,19 @@ import cors from "cors";
 import { config } from "./config/index.js";
 import { processCommand } from "./agent/index.js";
 import { sessionManager } from "./linkedin/session-manager.js";
+import setupRoutes from "./routes/setup.js";
 
 const app = express();
 
-app.use(cors({ origin: "http://localhost:3000" }));
+app.use(cors({ origin: "*" })); // Allow all origins for local dev
 app.use(express.json());
 
 // ---- State ----
 let isInitialized = false;
 let isInitializing = false;
+
+// ---- Mount Setup Routes ----
+app.use("/api/setup", setupRoutes);
 
 // ---- Routes ----
 
@@ -129,6 +136,7 @@ app.listen(config.PORT, () => {
     console.log(`  📊 Status:    http://localhost:${config.PORT}/api/status`);
     console.log(`  🚀 Init:      POST http://localhost:${config.PORT}/api/init`);
     console.log(`  💬 Command:   POST http://localhost:${config.PORT}/api/command`);
+    console.log(`  🔧 Setup:     http://localhost:${config.PORT}/api/setup/status`);
     console.log(`  ────────────────────────────────────────\n`);
 });
 
