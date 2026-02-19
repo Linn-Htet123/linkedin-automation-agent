@@ -32,6 +32,15 @@ interface OpenClawAgentResult {
     error?: string;
 }
 
+export async function checkOpenClaw(): Promise<boolean> {
+    try {
+        await execFileAsync("openclaw", ["--version"], { timeout: 5000 });
+        return true;
+    } catch (error) {
+        console.error("OpenClaw is not installed or not in PATH:", error);
+        return false;
+    }
+}
 
 export async function processCommand(
     userCommand: string,

@@ -1,37 +1,71 @@
-# 💼 LinkedIn Digital Twin — AI Automation Agent
+# Larry - LinkedIn Digital Twin
 
-> **Larry Task**: An AI-powered LinkedIn outreach agent built on the **OpenClaw** framework, using **Claude 3.5 Sonnet** as the reasoning engine and **Playwright** for browser automation.
+This app is an AI-powered LinkedIn automation agent that acts as your digital twin. It uses **OpenClaw** for reasoning and **Playwright** for browser automation, allowing you to manage LinkedIn interactions via a simple local web interface without mastering complex terminal commands.
 
-## � Setup for Developers
+## Features
 
-This guide explains how to set up the project locally for development.
+- **Natural Language Commands**: "Check my messages", "Send a connection request to...", etc.
+- **Account Management**: Support for multiple LinkedIn accounts with easy switching.
+- **Auto-Reconnect**: Automatically recovers lost browser sessions.
+- **Secure**: Runs locally on your machine. Passwords are never stored; session cookies are used instead.
 
-### prerequisites
+## Installation
 
-- **Node.js**: v18+
-- **npm**: v9+
-- **OpenClaw CLI**: (Optional, for advanced features) `npm i -g openclaw`
+### Prerequisites
 
-### 1. Clone & Install
+- Node.js (v18 or higher)
+- [OpenClaw CLI](https://github.com/StartOpenClaw/openclaw) installed and configured with an AI provider (e.g., Anthropic, OpenAI).
 
-```bash
-git clone https://github.com/Linn-Htet123/linkedin-automation-agent.git
-cd linkedin-automation-agent
+### Step-by-Step Setup
 
-# Install dependencies for root, backend, and frontend
-npm install
-npm run install:all
-```
+1.  **Clone the Repository**
 
-### 2. Configure Environment
+    ```bash
+    git clone https://github.com/Linn-Htet123/linkedin-automation-agent.git
+    cd linkedin-automation-agent
+    ```
 
-Copy the example environment file in `backend`:
+2.  **Install Dependencies**
 
-```bash
-cp backend/.env.example backend/.env
-```
+    ```bash
+    npm run install:all
+    ```
 
-Edit `backend/.env` with your preferred settings (default values usually work fine).
+3.  **Setup Backend Environment**
+    Create a `.env` file in the `backend` directory:
+
+    ```bash
+    cd backend
+    cp .env.example .env
+    # Edit .env to add any specific configurations if needed (defaults usually work)
+
+    # Initialize accounts file
+    cp data/accounts.example.json data/accounts.json
+    cd ..
+    ```
+
+4.  **Start the Application**
+    This command starts both the backend API and the frontend UI:
+
+    ```bash
+    npm run dev
+    ```
+
+    - The frontend will be available at `http://localhost:3000`.
+    - The backend runs on `http://localhost:3001`.
+
+5.  **Desktop App (Optional)**
+    To run as a standalone desktop application:
+    ```bash
+    npm run electron:dev
+    ```
+
+## Usage
+
+1.  Open the app.
+2.  Go to **Manage Accounts** and add your LinkedIn account.
+3.  Log in via the browser window that appears.
+4.  Once setup is complete, start typing commands like "Read my unread messages"!
 
 ### 3. Install Browsers
 
@@ -71,6 +105,7 @@ To use this agent as an **OpenClaw Skill** (allowing control via CLI or voice):
 2.  **Link the Skill**:
 
     ```bash
+    mkdir -p ~/.openclaw/workspace/skills/
     ln -s $(pwd)/skills/linkedin-digital-twin ~/.openclaw/workspace/skills/
     ```
 

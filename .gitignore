@@ -23,6 +23,9 @@ backend/.env.local
 backend/sessions/
 sessions/
 
+# User data
+backend/data/accounts.json
+
 # Debug dumps (screenshots + HTML)
 backend/debug/
 

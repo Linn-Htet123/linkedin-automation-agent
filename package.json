@@ -19,8 +19,8 @@
     "dist": "npm run build && electron-builder"
   },
   "build": {
-    "appId": "com.linkedin.agent",
-    "productName": "LinkedIn Agent",
+    "appId": "com.larry.agent",
+    "productName": "Larry",
     "files": [
       "electron/**/*",
       "backend/**/*",

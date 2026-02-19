@@ -13,6 +13,7 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false, // For simple IPC if needed
     },
+    title: "Larry - LinkedIn Agent",
   });
 
   // Load the frontend (Next.js dev server or built static files)

@@ -9,9 +9,9 @@ metadata:
     "openclaw":
       {
         "emoji": "💼",
-        "homepage": "https://github.com/larry/linkedin-agent",
+        "homepage": "https://github.com/Linn-Htet123/linkedin-automation-agent",
         "requires": { "config": ["browser.enabled"] },
-        "os": ["darwin", "linux"],
+        "os": ["darwin", "linux", "win32"],
       },
   }
 ---

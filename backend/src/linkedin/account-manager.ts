@@ -35,6 +35,16 @@ export class AccountManager {
                 await this.save();
             }
         } catch (error) {
+            const err = error as NodeJS.ErrnoException;
+            if (err.code === "ENOENT") {
+                console.warn("\n⚠️  WARNING: accounts.json not found.");
+                console.warn("   To fix, run this from the project root:");
+                console.warn("   cp backend/data/accounts.example.json backend/data/accounts.json\n");
+                console.warn("   Starting with empty accounts list for now.");
+            } else {
+                console.error("Failed to load accounts:", err);
+            }
+
             // File doesn't exist or is corrupt, start fresh
             this.accounts = [];
             this.activeAccountId = null;
