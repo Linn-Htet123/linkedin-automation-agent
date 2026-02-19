@@ -53,8 +53,10 @@ function startBackend() {
 
 app.on("ready", () => {
   startBackend();
-  // Wait a bit for backend to start, or rely on wait-on in npm script
-  createWindow();
+  // Wait a bit for backend to start
+  setTimeout(() => {
+    createWindow();
+  }, 3000);
 });
 
 app.on("window-all-closed", function () {

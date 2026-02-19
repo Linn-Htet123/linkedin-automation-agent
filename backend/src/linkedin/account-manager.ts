@@ -8,7 +8,6 @@ const ACCOUNTS_FILE = path.join(DATA_DIR, "accounts.json");
 export interface LinkedInAccount {
     id: string; // unique ID (e.g., email or uuid)
     email: string;
-    password: string; // In a real app, encrypt this!
     isActive: boolean;
     name?: string;
     avatarUrl?: string;
@@ -53,22 +52,18 @@ export class AccountManager {
         return this.accounts.find(a => a.id === this.activeAccountId) || null;
     }
 
-    async addAccount(email: string, password: string): Promise<LinkedInAccount> {
+    async addAccount(email: string): Promise<LinkedInAccount> {
         await this.initialize();
 
         // Check if exists
         const existing = this.accounts.find(a => a.email === email);
         if (existing) {
-            // Update password logic if needed, for now just return existing
-            existing.password = password;
-            await this.save();
             return existing;
         }
 
         const newAccount: LinkedInAccount = {
             id: email, // simple ID for now
             email,
-            password,
             isActive: false
         };
 

@@ -18,7 +18,7 @@ interface MainAppProps {
   agentStatus: AgentStatus;
   setAgentStatus: (s: AgentStatus) => void;
   setupStatus: SetupStatus | null;
-  onGoToSetup: () => void;
+  onGoToSetup: (mode?: "add_account") => void;
 }
 
 function formatToolName(tool: string): string {
@@ -99,28 +99,43 @@ export default function MainApp({
 
   const handleInit = async () => {
     setAgentStatus("initializing");
-    try {
-      const data = await initializeAgent();
-      if (
-        data.status === "initialized" ||
-        data.status === "already_initialized"
-      ) {
-        setAgentStatus("ready");
-        addAgentMessage(
-          '🎉 LinkedIn session connected! I\'m ready to help with your outreach. Try something like:\n\n• "Send a message to John saying I\'d love to connect"\n• "Read my recent messages"\n• "Search for Jane Smith on LinkedIn"',
-        );
-      } else {
-        setAgentStatus("offline");
-        addAgentMessage(
-          "⏳ Initialization in progress. Please wait a moment and try again.",
-        );
+    const maxRetries = 5;
+    let attempts = 0;
+
+    while (attempts < maxRetries) {
+      try {
+        const data = await initializeAgent();
+        if (
+          data.status === "initialized" ||
+          data.status === "already_initialized"
+        ) {
+          setAgentStatus("ready");
+          // No initial message - show empty state with actions instead
+          return;
+        } else {
+          // If response is good but status is not ready, maybe wait and retry or just show offline
+          // For now, let's treat it as a temporary failure if it says initializing
+          if (attempts === maxRetries - 1) {
+            setAgentStatus("offline");
+            addAgentMessage(
+              "⏳ Initialization in progress. Please wait a moment and try again.",
+            );
+          }
+        }
+      } catch (err) {
+        console.warn(`Connection attempt ${attempts + 1} failed.`);
       }
-    } catch {
-      setAgentStatus("offline");
-      addAgentMessage(
-        "❌ Could not connect to the agent server. Please check if the backend is running.",
-      );
+
+      attempts++;
+      if (attempts < maxRetries) {
+        await new Promise((r) => setTimeout(r, 2000)); // Wait 2s
+      }
     }
+
+    setAgentStatus("offline");
+    addAgentMessage(
+      "❌ Could not connect to the agent server. Please check if the backend is running.",
+    );
   };
 
   const addAgentMessage = (
@@ -191,9 +206,9 @@ export default function MainApp({
   };
 
   const quickActions = [
-    { label: "💬 Send a message", cmd: "Send a message to " },
-    { label: "📖 Read messages", cmd: "Read my recent LinkedIn messages" },
-    { label: "🔍 Search profile", cmd: "Search for " },
+    { label: "Send a message", cmd: "Send a message to " },
+    { label: "Read messages", cmd: "Read my recent LinkedIn messages" },
+    { label: "Search profile", cmd: "Search for " },
   ];
 
   return (
@@ -201,7 +216,6 @@ export default function MainApp({
       <header className="app-header app-header--compact">
         <div className="header-row">
           <div className="app-logo">
-            <div className="app-logo-icon">💼</div>
             <span className="app-logo-text">LinkedIn Digital Twin</span>
           </div>
           <div className="header-actions">
@@ -216,7 +230,6 @@ export default function MainApp({
                 <span className="account-name">
                   {activeAccount?.email || "No Account"}
                 </span>
-                <span className="chevron">▼</span>
               </button>
 
               {showAccountMenu && (
@@ -229,7 +242,7 @@ export default function MainApp({
                       onClick={() => handleSwitchAccount(acc.id)}
                     >
                       <span className="menu-item-icon">
-                        {acc.isActive ? "✓" : ""}
+                        {acc.isActive ? "(active)" : ""}
                       </span>
                       {acc.email}
                     </button>
@@ -237,7 +250,7 @@ export default function MainApp({
                   <div className="menu-divider" />
                   <button
                     className="menu-item menu-item-add"
-                    onClick={onGoToSetup}
+                    onClick={() => onGoToSetup("add_account")}
                   >
                     + Add another account
                   </button>
@@ -266,7 +279,6 @@ export default function MainApp({
 
       {agentStatus !== "ready" && agentStatus !== "checking" && (
         <section className="init-section">
-          <div className="init-icon">🔗</div>
           <h2 className="init-title">Connect to LinkedIn</h2>
           <p className="init-description">
             Launch the browser and connect to your LinkedIn account (
@@ -274,7 +286,7 @@ export default function MainApp({
             {!setupStatus?.steps.credentials && (
               <>
                 {" "}
-                <button className="link-btn" onClick={onGoToSetup}>
+                <button className="link-btn" onClick={() => onGoToSetup()}>
                   Set up credentials first →
                 </button>
               </>
@@ -291,7 +303,7 @@ export default function MainApp({
                 <span className="btn-spinner" /> Connecting...
               </>
             ) : (
-              "🚀 Connect & Launch"
+              "Connect & Launch"
             )}
           </button>
           {agentStatus === "initializing" && (
@@ -308,7 +320,6 @@ export default function MainApp({
           <div className="chat-area">
             {messages.length === 0 && (
               <div className="empty-state">
-                <div className="empty-state-icon">💬</div>
                 <p className="empty-state-text">
                   What would you like to do on LinkedIn as{" "}
                   <strong>{activeAccount?.email}</strong>?
@@ -336,9 +347,7 @@ export default function MainApp({
                 key={msg.id}
                 className={`chat-message chat-message--${msg.role}`}
               >
-                <div className={`chat-avatar chat-avatar--${msg.role}`}>
-                  {msg.role === "user" ? "👤" : "🤖"}
-                </div>
+                <div className={`chat-avatar chat-avatar--${msg.role}`}></div>
                 <div className="chat-bubble">
                   <div className="chat-sender">
                     {msg.role === "user" ? "You" : "🦞 OpenClaw Agent"}
@@ -357,7 +366,7 @@ export default function MainApp({
                                 : "action-badge--error"
                             }`}
                           >
-                            {action.success ? "✓" : "✗"}{" "}
+                            {action.success ? "Success" : "Failed"}{" "}
                             {formatToolName(action.tool)}
                           </span>
                         ))}
@@ -381,7 +390,7 @@ export default function MainApp({
 
             {isProcessing && (
               <div className="chat-message chat-message--agent">
-                <div className="chat-avatar chat-avatar--agent">🤖</div>
+                <div className="chat-avatar chat-avatar--agent"></div>
                 <div
                   className="log-loader-wrapper"
                   style={{ width: "100%", maxWidth: "600px" }}
@@ -413,7 +422,7 @@ export default function MainApp({
                 disabled={!input.trim() || isProcessing}
                 id="send-cmd-btn"
               >
-                {isProcessing ? "..." : "➤"}
+                {isProcessing ? "..." : "Send"}
               </button>
             </div>
             <p className="input-hint">

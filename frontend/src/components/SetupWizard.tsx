@@ -6,14 +6,17 @@ interface SetupWizardProps {
   initialStatus: SetupStatus | null;
   serverOnline: boolean;
   onComplete: () => void;
+  forceStep?: SetupStep;
 }
 
 export default function SetupWizard({
   initialStatus,
   serverOnline,
   onComplete,
+  forceStep,
 }: SetupWizardProps) {
   const [step, setStep] = useState<SetupStep>(() => {
+    if (forceStep) return forceStep;
     if (!initialStatus) return "credentials";
     if (!initialStatus.steps.credentials) return "credentials";
     if (!initialStatus.steps.browser) return "browser";
@@ -34,8 +37,6 @@ export default function SetupWizard({
   }, [serverOnline]);
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -44,8 +45,8 @@ export default function SetupWizard({
 
   const handleSaveCredentials = async () => {
     setError("");
-    if (!email || !password) {
-      setError("Both fields are required.");
+    if (!email) {
+      setError("Email is required.");
       return;
     }
 
@@ -53,7 +54,6 @@ export default function SetupWizard({
     try {
       const result = await addAccount({
         email,
-        password,
       });
 
       if (result.success) {
@@ -61,10 +61,9 @@ export default function SetupWizard({
         const accs = await fetchAccounts();
         setAccounts(accs.accounts);
         setEmail("");
-        setPassword("");
         // Don't auto-advance. Let user add more or click continue.
       } else {
-        setError(result.error || "Failed to save credentials.");
+        setError(result.error || "Failed to save account.");
       }
     } catch {
       setError(
@@ -101,9 +100,9 @@ export default function SetupWizard({
   };
 
   const steps = [
-    { key: "credentials", label: "Accounts", icon: "🔑" },
-    { key: "browser", label: "Browser", icon: "🌐" },
-    { key: "complete", label: "Ready!", icon: "🚀" },
+    { key: "credentials", label: "Accounts", icon: "" },
+    { key: "browser", label: "Browser", icon: "" },
+    { key: "complete", label: "Ready!", icon: "" },
   ];
 
   const currentIndex = steps.findIndex((s) => s.key === step);
@@ -112,7 +111,6 @@ export default function SetupWizard({
     <div className="app-container">
       <header className="app-header">
         <div className="app-logo">
-          <div className="app-logo-icon">💼</div>
           <span className="app-logo-text">LinkedIn Digital Twin</span>
         </div>
         <p className="app-subtitle">
@@ -122,7 +120,6 @@ export default function SetupWizard({
 
       {!serverOnline && (
         <div className="warning-banner" id="server-warning">
-          <span className="warning-icon">⚠️</span>
           <div>
             <strong>Backend server is not running.</strong>
             <p>
@@ -144,7 +141,7 @@ export default function SetupWizard({
                   : "step-pending"
             }`}
           >
-            <div className="step-circle">{i < currentIndex ? "✓" : s.icon}</div>
+            <div className="step-circle">{i + 1}</div>
             <span className="step-label">{s.label}</span>
             {i < steps.length - 1 && <div className="step-connector" />}
           </div>
@@ -154,10 +151,11 @@ export default function SetupWizard({
       <div className="setup-card">
         {step === "credentials" && (
           <div className="setup-step" id="step-credentials">
-            <h2 className="setup-title">🔑 Manage LinkedIn Accounts</h2>
+            <h2 className="setup-title">Manage LinkedIn Accounts</h2>
             <p className="setup-desc">
               Add your LinkedIn accounts. The agent can switch between them.
-              Credentials are stored securely locally.
+              Passwords are not stored; you&apos;ll log in securely via browser
+              window.
             </p>
 
             {loadingAccounts ? (
@@ -192,30 +190,6 @@ export default function SetupWizard({
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label" htmlFor="input-password">
-                LinkedIn Password
-              </label>
-              <div className="form-input-wrapper">
-                <input
-                  id="input-password"
-                  type={showPassword ? "text" : "password"}
-                  className="form-input"
-                  placeholder="Your LinkedIn password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="toggle-visibility"
-                  onClick={() => setShowPassword(!showPassword)}
-                  id="toggle-password"
-                >
-                  {showPassword ? "🙈" : "👁️"}
-                </button>
-              </div>
-            </div>
-
             {error && <div className="form-error">{error}</div>}
 
             <div className="btn-row">
@@ -248,7 +222,7 @@ export default function SetupWizard({
 
         {step === "browser" && (
           <div className="setup-step" id="step-browser">
-            <h2 className="setup-title">🌐 Install Browser</h2>
+            <h2 className="setup-title">Install Browser</h2>
             <p className="setup-desc">
               We need to install a Chromium browser that the agent uses to
               interact with LinkedIn. This is a one-time download (~150MB).
@@ -273,7 +247,7 @@ export default function SetupWizard({
                     minute)
                   </>
                 ) : (
-                  "📦 Install Chromium"
+                  "Install Chromium"
                 )}
               </button>
 
@@ -291,7 +265,6 @@ export default function SetupWizard({
 
         {step === "complete" && (
           <div className="setup-step setup-step--complete" id="step-complete">
-            <div className="complete-icon">🎉</div>
             <h2 className="setup-title">You&apos;re All Set!</h2>
             <p className="setup-desc">
               Everything is configured. Click below to launch the agent and
@@ -303,7 +276,7 @@ export default function SetupWizard({
               onClick={onComplete}
               id="launch-agent-btn"
             >
-              🚀 Launch Agent
+              Launch Agent
             </button>
           </div>
         )}

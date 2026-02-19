@@ -1,23 +1,8 @@
-/**
- * OpenClaw Agent Bridge
- *
- * Replaces the direct Anthropic SDK with OpenClaw as the AI brain.
- * Sends commands to the OpenClaw gateway via the `openclaw agent` CLI,
- * which handles Claude, tool calling, and conversation history internally.
- *
- * The LinkedIn tools (send, read, search) are registered in the OpenClaw
- * plugin (openclaw-plugin/index.ts) and called by OpenClaw's agent loop.
- */
-
 import { execFile } from "child_process";
 import { promisify } from "util";
 import type { MessageData } from "../linkedin/actions.js";
 
 const execFileAsync = promisify(execFile);
-
-// ============================================================
-// TYPES
-// ============================================================
 
 export interface AgentResult {
     response: string;
@@ -30,7 +15,6 @@ interface ActionLog {
     result: unknown;
 }
 
-/** OpenClaw agent --json output shape */
 interface OpenClawAgentResult {
     status: "ok" | "error";
     summary?: string;
@@ -48,14 +32,7 @@ interface OpenClawAgentResult {
     error?: string;
 }
 
-// ============================================================
-// AGENT EXECUTION
-// ============================================================
 
-/**
- * Process a natural language command through OpenClaw's agent.
- * OpenClaw handles Claude, tool calling, and conversation history.
- */
 export async function processCommand(
     userCommand: string,
 ): Promise<AgentResult> {
@@ -75,14 +52,12 @@ export async function processCommand(
             console.warn(`⚠️  OpenClaw stderr: ${stderr}`);
         }
 
-        // Parse the JSON output from openclaw agent --json
         const parsed: OpenClawAgentResult = JSON.parse(stdout.trim());
 
         if (parsed.status === "error") {
             throw new Error(parsed.error ?? "OpenClaw agent returned an error");
         }
 
-        // Extract the text response from payloads
         const payloads = parsed.result?.payloads ?? [];
         const responseText = payloads
             .map((p) => p.text ?? "")
@@ -94,7 +69,7 @@ export async function processCommand(
 
         return {
             response: responseText,
-            actions: [], // OpenClaw manages tool call logs internally
+            actions: [],
         };
     } catch (error) {
         if (error instanceof SyntaxError) {

@@ -30,7 +30,7 @@ When the user asks to send a message to someone on LinkedIn, run the
 send-message script:
 
 ```bash
-cd {baseDir}/../../backend && npx tsx src/linkedin/actions.ts send --to "<name>" --message "<text>"
+cd {baseDir}/../../backend && npx tsx src/cli.ts send --to "<name>" --message "<text>"
 ```
 
 ### 2. Read LinkedIn Messages
@@ -38,7 +38,7 @@ cd {baseDir}/../../backend && npx tsx src/linkedin/actions.ts send --to "<name>"
 When the user asks to read messages or check conversations:
 
 ```bash
-cd {baseDir}/../../backend && npx tsx src/linkedin/actions.ts read --from "<name>" --count <N>
+cd {baseDir}/../../backend && npx tsx src/cli.ts read --from "<name>" --count <N>
 ```
 
 ### 3. Search LinkedIn Profiles
@@ -46,7 +46,7 @@ cd {baseDir}/../../backend && npx tsx src/linkedin/actions.ts read --from "<name
 When the user asks to find someone on LinkedIn:
 
 ```bash
-cd {baseDir}/../../backend && npx tsx src/linkedin/actions.ts search --name "<query>"
+cd {baseDir}/../../backend && npx tsx src/cli.ts search --name "<query>"
 ```
 
 ## How It Works
@@ -64,8 +64,8 @@ LinkedIn's web interface. It:
 ## Setup
 
 1. Install dependencies: `npm run install:all` (in the project root)
-2. Copy `backend/.env.example` to `backend/.env` and fill in your credentials
-3. Run the login script: `npm run linkedin:login`
+2. Copy `backend/.env.example` to `backend/.env` and fill in your LinkedIn email
+3. Run the login script: `npm run linkedin:login` (you will enter your password in the browser)
 4. Start the server: `npm run dev`
 
 ## Security Notes

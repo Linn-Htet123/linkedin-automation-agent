@@ -71,10 +71,6 @@ export class LinkedInSessionManager {
 
             this.context = await this.browser!.newContext({
                 storageState,
-                userAgent:
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
-                    "AppleWebKit/537.36 (KHTML, like Gecko) " +
-                    "Chrome/122.0.0.0 Safari/537.36",
                 viewport: { width: 1280, height: 800 },
                 locale: "en-US",
             });
@@ -93,10 +89,6 @@ export class LinkedInSessionManager {
 
         if (!this.context) {
             this.context = await this.browser!.newContext({
-                userAgent:
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
-                    "AppleWebKit/537.36 (KHTML, like Gecko) " +
-                    "Chrome/122.0.0.0 Safari/537.36",
                 viewport: { width: 1280, height: 800 },
                 locale: "en-US",
             });
@@ -109,21 +101,18 @@ export class LinkedInSessionManager {
             timeout: 60_000,
         });
 
-        await this.page.fill('input[id="username"]', activeAccount.email);
-        await this.page.fill('input[id="password"]', activeAccount.password);
 
-        await this.page.click('button[type="submit"]');
+        const emailInput = this.page.locator('input[id="username"]').or(this.page.locator('input[name="session_key"]'));
+        await emailInput.fill(activeAccount.email);
+
+
+        console.log("Waiting up to 120 seconds for login to complete...");
 
         try {
-            await this.page.waitForURL("**/feed/**", { timeout: 30_000 });
+            await this.page.waitForURL("**/feed/**", { timeout: 120_000 });
             console.log("Login successful!");
         } catch {
-            console.log("Login requires manual intervention (CAPTCHA/2FA).");
-            console.log("   Complete the challenge in the browser window.");
-            console.log("   Waiting up to 120 seconds...");
-
-            await this.page.waitForURL("**/feed/**", { timeout: 120_000 });
-            console.log("Login completed after manual intervention!");
+            console.log("Login timed out. Please try again.");
         }
 
         await this.saveSession();

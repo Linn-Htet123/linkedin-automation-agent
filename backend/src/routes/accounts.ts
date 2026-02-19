@@ -29,12 +29,12 @@ router.get("/", async (_req, res) => {
 // POST /api/accounts - Add a new account
 router.post("/", async (req, res) => {
     try {
-        const { email, password } = req.body;
-        if (!email || !password) {
-            return res.status(400).json({ error: "Email and password are required" });
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ error: "Email is required" });
         }
 
-        await accountManager.addAccount(email, password);
+        await accountManager.addAccount(email);
         res.json({ success: true, message: "Account added successfully" });
     } catch (error) {
         const msg = error instanceof Error ? error.message : "Unknown error";

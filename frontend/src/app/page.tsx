@@ -12,6 +12,10 @@ export default function Home() {
   const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null);
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("checking");
   const [serverOnline, setServerOnline] = useState(false);
+  // Track why we entered setup: 'initial' (default) or 'add_account' (explicit)
+  const [setupMode, setSetupMode] = useState<"initial" | "add_account">(
+    "initial",
+  );
 
   useEffect(() => {
     const check = async () => {
@@ -49,9 +53,11 @@ export default function Home() {
       <SetupWizard
         initialStatus={setupStatus}
         serverOnline={serverOnline}
+        forceStep={setupMode === "add_account" ? "credentials" : undefined}
         onComplete={() => {
           setScreen("main");
           setAgentStatus("offline");
+          setSetupMode("initial"); // Reset mode
         }}
       />
     );
@@ -62,7 +68,11 @@ export default function Home() {
       agentStatus={agentStatus}
       setAgentStatus={setAgentStatus}
       setupStatus={setupStatus}
-      onGoToSetup={() => setScreen("setup")}
+      onGoToSetup={(mode) => {
+        if (mode === "add_account") setSetupMode("add_account");
+        else setSetupMode("initial");
+        setScreen("setup");
+      }}
     />
   );
 }

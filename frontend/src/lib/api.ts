@@ -12,7 +12,7 @@ export async function fetchAccounts(): Promise<{ accounts: Account[] }> {
     return res.json();
 }
 
-export async function addAccount(data: { email: string; password: string }): Promise<{ success: boolean; message: string; error?: string }> {
+export async function addAccount(data: { email: string }): Promise<{ success: boolean; message: string; error?: string }> {
     const res = await fetch(`${API_BASE}/api/accounts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

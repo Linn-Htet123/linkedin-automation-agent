@@ -25,22 +25,16 @@ import accountsRouter from "./routes/accounts.js";
 
 const app = express();
 
-app.use(cors({ origin: "*" })); // Allow all origins for local dev
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
-// ---- State ----
 let isInitialized = false;
 let isInitializing = false;
 
-// ---- Mount Setup Routes ----
 app.use("/api/setup", setupRoutes);
 app.use("/api/accounts", accountsRouter);
 
-// ---- Routes ----
 
-/**
- * Health check / status endpoint
- */
 app.get("/api/status", (_req, res) => {
     res.json({
         status: isInitialized ? "ready" : "not_initialized",
@@ -50,9 +44,6 @@ app.get("/api/status", (_req, res) => {
     });
 });
 
-/**
- * Initialize the LinkedIn browser session.
- */
 app.post("/api/init", async (_req, res) => {
     if (isInitialized) {
         return res.json({ status: "already_initialized" });
@@ -76,10 +67,6 @@ app.post("/api/init", async (_req, res) => {
     }
 });
 
-/**
- * Process a natural language command via OpenClaw's agent.
- * OpenClaw handles Claude, tool calling, and conversation history.
- */
 app.post("/api/command", async (req, res) => {
     if (!isInitialized) {
         return res.status(400).json({
@@ -114,11 +101,6 @@ app.post("/api/command", async (req, res) => {
     }
 });
 
-/**
- * Internal endpoint called by the OpenClaw LinkedIn plugin.
- * Executes Playwright actions directly — bypasses the agent loop
- * to avoid circular calls (plugin → agent → plugin).
- */
 app.post("/api/linkedin-tool", async (req, res) => {
     if (!isInitialized) {
         return res.status(400).json({
