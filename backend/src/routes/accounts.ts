@@ -4,7 +4,6 @@ import { sessionManager } from "../linkedin/session-manager.js";
 
 const router = Router();
 
-// GET /api/accounts - List all accounts
 router.get("/", async (_req, res) => {
     try {
         const accounts = await accountManager.getAccounts();
@@ -69,10 +68,10 @@ router.post("/switch", async (req, res) => {
     }
 });
 
-// DELETE /api/accounts/:id - Remove an account
 router.delete("/:id", async (req, res) => {
     try {
         const { id } = req.params;
+        await sessionManager.deleteSession(id);
         await accountManager.removeAccount(id);
         res.json({ success: true, message: "Account removed" });
     } catch (error) {

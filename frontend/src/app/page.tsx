@@ -54,6 +54,7 @@ export default function Home() {
         initialStatus={setupStatus}
         serverOnline={serverOnline}
         forceStep={setupMode === "add_account" ? "credentials" : undefined}
+        isAddMode={setupMode === "add_account"}
         onComplete={() => {
           setScreen("main");
           setAgentStatus("offline");

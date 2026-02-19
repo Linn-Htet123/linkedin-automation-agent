@@ -107,7 +107,7 @@ async function sendMessageAttempt(
     messageText: string,
     attempt: number,
 ): Promise<ActionResult> {
-    const page = sessionManager.getPage();
+    const page = await sessionManager.ensurePage();
     const debugFiles: string[] = [];
     let currentStep = "init";
 

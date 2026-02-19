@@ -56,11 +56,25 @@ export class LinkedInSessionManager {
         return this.page!;
     }
 
-    private getSessionFilePath(): string {
-        if (!this.currentAccountId) throw new Error("No active account ID");
+    private getSessionFilePath(accountId?: string): string {
+        const idToUse = accountId || this.currentAccountId;
+        if (!idToUse) throw new Error("No account ID provided for session file path");
         // Sanitize ID for filename
-        const safeId = this.currentAccountId.replace(/[^a-z0-9]/gi, '_');
+        const safeId = idToUse.replace(/[^a-z0-9]/gi, '_');
         return path.join(config.SESSION_DIR, `linkedin-session-${safeId}.json`);
+    }
+
+    async deleteSession(accountId: string): Promise<void> {
+        try {
+            const filePath = this.getSessionFilePath(accountId);
+            await fs.unlink(filePath);
+            console.log(`Deleted session file for account ${accountId}`);
+        } catch (error) {
+            // Ignore if file doesn't exist
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+                console.error(`Failed to delete session file for ${accountId}:`, error);
+            }
+        }
     }
 
     private async loadSession(): Promise<boolean> {
@@ -149,6 +163,16 @@ export class LinkedInSessionManager {
         } catch {
             return false;
         }
+    }
+
+
+    async ensurePage(): Promise<Page> {
+        if (!this.page || this.page.isClosed() || !this.context || !this.browser || !this.browser.isConnected()) {
+            console.log("⚠️ Browser session lost or closed. Re-initializing...");
+            await this.close();
+            return this.initialize();
+        }
+        return this.page;
     }
 
     getPage(): Page {

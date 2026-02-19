@@ -1,12 +1,18 @@
 import { useState, useEffect } from "react";
 import { SetupStatus, SetupStep, Account } from "../types";
-import { addAccount, installBrowser, fetchAccounts } from "../lib/api";
+import {
+  addAccount,
+  installBrowser,
+  fetchAccounts,
+  removeAccount,
+} from "../lib/api";
 
 interface SetupWizardProps {
   initialStatus: SetupStatus | null;
   serverOnline: boolean;
   onComplete: () => void;
   forceStep?: SetupStep;
+  isAddMode?: boolean;
 }
 
 export default function SetupWizard({
@@ -14,6 +20,7 @@ export default function SetupWizard({
   serverOnline,
   onComplete,
   forceStep,
+  isAddMode = false,
 }: SetupWizardProps) {
   const [step, setStep] = useState<SetupStep>(() => {
     if (forceStep) return forceStep;
@@ -39,12 +46,14 @@ export default function SetupWizard({
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   const [installing, setInstalling] = useState(false);
   const [installMessage, setInstallMessage] = useState("");
 
   const handleSaveCredentials = async () => {
     setError("");
+    setSuccessMsg("");
     if (!email) {
       setError("Email is required.");
       return;
@@ -61,7 +70,15 @@ export default function SetupWizard({
         const accs = await fetchAccounts();
         setAccounts(accs.accounts);
         setEmail("");
-        // Don't auto-advance. Let user add more or click continue.
+
+        if (!isAddMode) {
+          setSuccessMsg("✅ Account added! Proceeding to next step...");
+          setTimeout(() => {
+            setStep("browser");
+          }, 1500);
+        } else {
+          setSuccessMsg("✅ Account added successfully!");
+        }
       } else {
         setError(result.error || "Failed to save account.");
       }
@@ -71,6 +88,26 @@ export default function SetupWizard({
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRemoveAccount = async (accountId: string) => {
+    if (!confirm("Are you sure you want to remove this account?")) return;
+
+    try {
+      setLoadingAccounts(true);
+      const res = await removeAccount(accountId);
+      if (res.success) {
+        setSuccessMsg("✅ Account removed.");
+        const accs = await fetchAccounts();
+        setAccounts(accs.accounts);
+      } else {
+        setError(res.error || "Failed to remove account.");
+      }
+    } catch {
+      setError("Failed to connect to server.");
+    } finally {
+      setLoadingAccounts(false);
     }
   };
 
@@ -129,29 +166,34 @@ export default function SetupWizard({
         </div>
       )}
 
-      <div className="step-progress">
-        {steps.map((s, i) => (
-          <div
-            key={s.key}
-            className={`step-item ${
-              i < currentIndex
-                ? "step-done"
-                : i === currentIndex
-                  ? "step-active"
-                  : "step-pending"
-            }`}
-          >
-            <div className="step-circle">{i + 1}</div>
-            <span className="step-label">{s.label}</span>
-            {i < steps.length - 1 && <div className="step-connector" />}
-          </div>
-        ))}
-      </div>
+      {/* Hide steps in add mode to reduce clutter */}
+      {!isAddMode && (
+        <div className="step-progress">
+          {steps.map((s, i) => (
+            <div
+              key={s.key}
+              className={`step-item ${
+                i < currentIndex
+                  ? "step-done"
+                  : i === currentIndex
+                    ? "step-active"
+                    : "step-pending"
+              }`}
+            >
+              <div className="step-circle">{i + 1}</div>
+              <span className="step-label">{s.label}</span>
+              {i < steps.length - 1 && <div className="step-connector" />}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="setup-card">
         {step === "credentials" && (
           <div className="setup-step" id="step-credentials">
-            <h2 className="setup-title">Manage LinkedIn Accounts</h2>
+            <h2 className="setup-title">
+              {isAddMode ? "Add New Account" : "Manage LinkedIn Accounts"}
+            </h2>
             <p className="setup-desc">
               Add your LinkedIn accounts. The agent can switch between them.
               Passwords are not stored; you&apos;ll log in securely via browser
@@ -165,10 +207,19 @@ export default function SetupWizard({
                 <h3 className="section-subtitle">Existing Accounts</h3>
                 {accounts.map((acc) => (
                   <div key={acc.id} className="account-item">
-                    <span className="account-email">{acc.email}</span>
-                    {acc.isActive && (
-                      <span className="badge-active">Active</span>
-                    )}
+                    <div className="account-info">
+                      <span className="account-email">{acc.email}</span>
+                      {acc.isActive && (
+                        <span className="badge-active">Active</span>
+                      )}
+                    </div>
+                    <button
+                      className="remove-btn"
+                      onClick={() => handleRemoveAccount(acc.id)}
+                      title="Remove Account"
+                    >
+                      ×
+                    </button>
                   </div>
                 ))}
                 <div className="divider" />
@@ -191,6 +242,7 @@ export default function SetupWizard({
             </div>
 
             {error && <div className="form-error">{error}</div>}
+            {successMsg && <div className="success-banner">{successMsg}</div>}
 
             <div className="btn-row">
               <button
@@ -204,17 +256,23 @@ export default function SetupWizard({
                     <span className="btn-spinner" /> Saving...
                   </>
                 ) : (
-                  "Add Account & Continue →"
+                  "Add Account"
                 )}
               </button>
 
-              {accounts.length > 0 && (
-                <button
-                  className="secondary-btn"
-                  onClick={() => setStep("browser")}
-                >
-                  Continue with Existing →
+              {isAddMode ? (
+                <button className="secondary-btn" onClick={onComplete}>
+                  ← Return to Agent
                 </button>
+              ) : (
+                accounts.length > 0 && (
+                  <button
+                    className="secondary-btn"
+                    onClick={() => setStep("browser")}
+                  >
+                    Continue with Existing →
+                  </button>
+                )
               )}
             </div>
           </div>

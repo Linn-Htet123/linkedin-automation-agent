@@ -5,7 +5,7 @@ import { dumpDOM, dumpDOMForced } from "../../utils/domDump.js";
 export async function searchProfile(
     name: string,
 ): Promise<{ success: boolean; profileUrl?: string; error?: string; step?: string }> {
-    const page = sessionManager.getPage();
+    const page = await sessionManager.ensurePage();
     let currentStep = "init";
 
     try {

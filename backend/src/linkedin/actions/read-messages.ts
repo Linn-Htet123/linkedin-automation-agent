@@ -62,7 +62,7 @@ export async function readMessages(
     recipientName?: string,
     count: number = 10,
 ): Promise<ReadResult> {
-    const page = sessionManager.getPage();
+    const page = await sessionManager.ensurePage();
     let currentStep = "init";
 
     try {
