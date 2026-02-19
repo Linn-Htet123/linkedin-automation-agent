@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "LinkedIn Digital Twin | Geodo AI Agent",
+  title: "LinkedIn Digital Twin | Larry AI Agent",
   description:
     "AI-powered LinkedIn outreach automation. Send messages, read conversations, and manage your LinkedIn presence with plain English commands.",
   keywords: [
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     "AI Agent",
     "Automation",
     "Digital Twin",
-    "Geodo",
+    "Larry",
     "OpenClaw",
   ],
 };

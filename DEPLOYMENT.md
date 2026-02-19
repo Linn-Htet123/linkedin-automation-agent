@@ -14,7 +14,7 @@ This guide will help you set up the LinkedIn Automation Agent on a new computer 
 1.  **Clone the Repository**
 
     ```bash
-    git clone https://github.com/geodo/linkedin-automation-agent.git
+    git clone https://github.com/larry/linkedin-automation-agent.git
     cd linkedin-automation-agent
     ```
 

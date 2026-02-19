@@ -1,7 +1,7 @@
 ---
 name: linkedin-digital-twin
 description: >
-  LinkedIn Digital Twin agent for Geodo — send messages, read
+  LinkedIn Digital Twin agent for Larry — send messages, read
   conversations, and search profiles on LinkedIn using plain English
   commands. Powered by Claude 3.5 Sonnet + Playwright browser automation.
 metadata:
@@ -9,7 +9,7 @@ metadata:
     "openclaw":
       {
         "emoji": "💼",
-        "homepage": "https://github.com/geodo/linkedin-agent",
+        "homepage": "https://github.com/larry/linkedin-agent",
         "requires": { "config": ["browser.enabled"] },
         "os": ["darwin", "linux"],
       },
