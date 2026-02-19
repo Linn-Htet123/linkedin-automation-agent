@@ -53,7 +53,10 @@ export async function processCommand(
             ["agent", "--agent", "main", "--message", userCommand, "--json"],
             {
                 timeout: 120_000, // 2 minute timeout
-                env: process.env,
+                env: {
+                    ...process.env,
+                    OPENCLAW_MODEL: "anthropic/claude-sonnet-4-5",
+                },
             }
         );
 

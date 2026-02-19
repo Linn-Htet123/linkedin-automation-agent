@@ -13,6 +13,7 @@ import {
   switchAccount,
 } from "../lib/api";
 import LogLoader from "./LogLoader";
+import ReactMarkdown from "react-markdown";
 
 interface MainAppProps {
   agentStatus: AgentStatus;
@@ -189,6 +190,14 @@ export default function MainApp({
           data.step,
           data.debugAvailable,
         );
+
+        if (
+          data.error?.includes("session lost") ||
+          data.error?.includes("Session not initialized") ||
+          data.error?.includes("browser session closed")
+        ) {
+          setAgentStatus("offline");
+        }
       }
     } catch {
       addAgentMessage("❌ Could not reach the agent server. Is it running?");
@@ -353,8 +362,9 @@ export default function MainApp({
                     {msg.role === "user" ? "You" : "🦞 OpenClaw Agent"}
                   </div>
                   <div className="chat-content">
-                    <div className="chat-text">{msg.content}</div>
-
+                    <div className="chat-text">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
                     {msg.actions && msg.actions.length > 0 && (
                       <div className="action-badges">
                         {msg.actions.map((action, i) => (
@@ -372,7 +382,6 @@ export default function MainApp({
                         ))}
                       </div>
                     )}
-
                     {msg.step && (
                       <div className="step-info">
                         Failed at step: <code>{msg.step}</code>

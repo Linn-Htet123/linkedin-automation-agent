@@ -15,7 +15,6 @@ export class LinkedInSessionManager {
     async initialize(accountId?: string): Promise<Page> {
         console.log("Initializing LinkedIn browser session...");
 
-        // If specific account requested, switch to it. Otherwise use active.
         if (accountId) {
             await accountManager.setActiveAccount(accountId);
         }
@@ -48,7 +47,11 @@ export class LinkedInSessionManager {
             const isLoggedIn = await this.verifyLogin();
             if (!isLoggedIn) {
                 console.log(`Session expired for ${activeAccount.email}. Re-authenticating...`);
-                await this.freshLogin();
+                try {
+                    await this.freshLogin();
+                } catch (e) {
+                    console.error("Fresh login failed:", e);
+                }
             }
         }
 
@@ -59,7 +62,6 @@ export class LinkedInSessionManager {
     private getSessionFilePath(accountId?: string): string {
         const idToUse = accountId || this.currentAccountId;
         if (!idToUse) throw new Error("No account ID provided for session file path");
-        // Sanitize ID for filename
         const safeId = idToUse.replace(/[^a-z0-9]/gi, '_');
         return path.join(config.SESSION_DIR, `linkedin-session-${safeId}.json`);
     }
@@ -70,7 +72,6 @@ export class LinkedInSessionManager {
             await fs.unlink(filePath);
             console.log(`Deleted session file for account ${accountId}`);
         } catch (error) {
-            // Ignore if file doesn't exist
             if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
                 console.error(`Failed to delete session file for ${accountId}:`, error);
             }
@@ -110,26 +111,36 @@ export class LinkedInSessionManager {
 
         this.page = await this.context.newPage();
 
-        await this.page.goto(`${LINKEDIN_URL}/login`, {
-            waitUntil: "domcontentloaded",
-            timeout: 60_000,
-        });
+        try {
+            await this.page.goto(`${LINKEDIN_URL}/login`, {
+                waitUntil: "domcontentloaded",
+                timeout: 60_000,
+            });
+        } catch (e) {
+            console.warn("Navigation to login page failed or timed out. Continuing to check page state...", e);
+        }
 
 
         const emailInput = this.page.locator('input[id="username"]').or(this.page.locator('input[name="session_key"]'));
-        await emailInput.fill(activeAccount.email);
-
-
-        console.log("Waiting up to 120 seconds for login to complete...");
 
         try {
-            await this.page.waitForURL("**/feed/**", { timeout: 120_000 });
-            console.log("Login successful!");
-        } catch {
-            console.log("Login timed out. Please try again.");
+            if (await emailInput.isVisible({ timeout: 5000 })) {
+                await emailInput.fill(activeAccount.email);
+            }
+        } catch (e) {
+            console.log("Could not auto-fill email (possibly already filled or different screen). Continuing...");
         }
 
-        await this.saveSession();
+
+        console.log("Waiting for user to log in manually...");
+
+        try {
+            await this.page.waitForURL("**/feed/**", { timeout: 300_000 });
+            console.log("Login successful! Saving session...");
+            await this.saveSession();
+        } catch (error) {
+            console.log("Login timed out (5 mins). Please restart if you are still trying to log in.");
+        }
     }
 
     private async saveSession(): Promise<void> {
@@ -143,20 +154,44 @@ export class LinkedInSessionManager {
         if (!this.page) return false;
 
         try {
-            await this.page.goto(`${LINKEDIN_URL}/feed/`, {
-                waitUntil: "domcontentloaded",
-                timeout: 30_000,
-            });
+            console.log("Verifying login status...");
+            try {
+                await this.page.goto(`${LINKEDIN_URL}/feed/`, {
+                    waitUntil: "domcontentloaded",
+                    timeout: 20_000,
+                });
+            } catch (e) {
+                console.warn("Navigation to feed timed out, checking current state...");
+            }
 
             await this.page.waitForTimeout(2000);
 
             const currentUrl = this.page.url();
-            if (currentUrl.includes("/login") || currentUrl.includes("/authwall")) {
+            console.log(`Current URL during verification: ${currentUrl}`);
+
+            if (currentUrl.includes("/login") || currentUrl.includes("/authwall") || currentUrl.includes("/checkpoint/")) {
+                console.log("Detected login/authwall page.");
                 return false;
             }
 
-            if (currentUrl.includes("linkedin.com")) {
+            try {
+                await Promise.race([
+                    this.page.waitForSelector(".global-nav__me", { timeout: 5000 }),
+                    this.page.waitForSelector(".feed-identity-module", { timeout: 5000 }),
+                    this.page.waitForSelector("#global-nav", { timeout: 5000 })
+                ]);
+                console.log("Found logged-in element (nav/feed). Verified.");
                 return true;
+            } catch {
+                console.log("Could not find standard logged-in elements.");
+            }
+
+            if (currentUrl.includes("linkedin.com") && !currentUrl.includes("guest")) {
+                const title = await this.page.title();
+                if (title.includes("Feed") || title.includes("LinkedIn")) {
+                    console.log("URL/Title suggests logged in.");
+                    return true;
+                }
             }
 
             return false;
@@ -168,9 +203,9 @@ export class LinkedInSessionManager {
 
     async ensurePage(): Promise<Page> {
         if (!this.page || this.page.isClosed() || !this.context || !this.browser || !this.browser.isConnected()) {
-            console.log("⚠️ Browser session lost or closed. Re-initializing...");
+            console.log("⚠️ Browser session lost or closed.");
             await this.close();
-            return this.initialize();
+            throw new Error("Browser session lost. Please reconnect.");
         }
         return this.page;
     }
